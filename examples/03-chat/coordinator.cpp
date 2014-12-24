@@ -35,7 +35,7 @@ int main ()
 	  // publish
 	  sendText (socketemitter, lines);
 
-	  // answer al participante
+	  // answer to the guest
 	  sendText (socket, "OK");
 	 
 	} );
