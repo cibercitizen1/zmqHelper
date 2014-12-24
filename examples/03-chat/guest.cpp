@@ -41,19 +41,19 @@ void callback_SUB (zmq::socket_t & socket ) {
 int main ()
 {
 
-  SocketAdaptor< ZMQ_REQ > emisor;
-  SocketAdaptor< ZMQ_SUB > receptor;
+  SocketAdaptor< ZMQ_REQ > emitter;
+  SocketAdaptor< ZMQ_SUB > receiver;
 
-  emisor.connect ("tcp://localhost:8000");
+  emitter.connect ("tcp://localhost:8000");
 
-  receptor.connect ("tcp://localhost:8001");
-  receptor.subscribe (CHANNEL);
+  receiver.connect ("tcp://localhost:8001");
+  receiver.subscribe (CHANNEL);
 
-  emisor.onMessage ( callback_REP );
-  receptor.onMessage ( callback_SUB );
+  emitter.onMessage ( callback_REP );
+  receiver.onMessage ( callback_SUB );
 
   // send first porst
-  auto & socket = emisor.getSocket ();
+  auto & socket = emitter.getSocket ();
 
   std::vector<std::string> multi = { CHANNEL, NICK, "hi all" };
   sendText ( socket, multi );
@@ -72,8 +72,8 @@ int main ()
   } while (line != "BYE"); 
   
   // stop threads
-  emisor.stopReceiving ();
-  receptor.stopReceiving ();
+  emitter.stopReceiving ();
+  receiver.stopReceiving ();
 
   std::cout << " happy ending \n";
 
