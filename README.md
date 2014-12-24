@@ -3,9 +3,9 @@ zmqHelper
 
 Helper class and functions on top of zmq C++ binding.
 
-1. Customize example/Makefile.in to your local settings (where your zmq library is).
+* Customize example/Makefile.in to your local settings (where your zmq library is).
 
-2. Usage example (just examples/04-REQ-broker-REP/broker.cpp)
+* Usage example (just examples/04-REQ-broker-REP/broker.cpp)
 
 ```cpp
 #include <zmq.hpp>
