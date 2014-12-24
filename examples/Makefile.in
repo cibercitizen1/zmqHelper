@@ -1,0 +1,8 @@
+
+
+# customize this
+
+INCLUDE_DIRS = -I /opt/zeromq/include/ 
+LIB_DIRS = -L /opt/zeromq/lib 
+
+CC = g++ -std=c++11
