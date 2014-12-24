@@ -65,7 +65,7 @@ int main ()
 
 	std::vector<std::string> sending = { CHANNEL, NICK, line };
 	
-	sendText ( socket, sending ); 
+	emitter.sendText ( sending ); 
 
   } while (line != "BYE"); 
   
