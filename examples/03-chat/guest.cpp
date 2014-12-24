@@ -62,8 +62,6 @@ int main ()
   std::string line;
   do {
 	getline (std::cin, line);
-	
-	std::cout << "line>" << line << "<\n";
 
 	std::vector<std::string> sending = { CHANNEL, NICK, line };
 	
