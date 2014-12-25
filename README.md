@@ -7,13 +7,12 @@ Helper class and functions on top of zmq C++ binding.
 
 * The guide says: "If you're sharing sockets across threads, don't. It
 will lead to random weirdness, and crashes."
-	  We have here one thread  wating for incoming data (onMessage()) which
+	  We have here one dedicated thread waiting for incoming data (onMessage()) which
 	calls the user provided callback() to handle it.
- Thus, danger is limited to the case when calback is reading data, and
- a different thread sends or is dong something else with the socket.
+ Thus, danger is limited to the case when the calback is reading data, and
+ the main or a different thread sends data or is doing something else with the socket.
  (There  is  a branch  'threadSafety'  to  explore the  protection  of
  send/rec functions with lock/unlock pairs).
-
 
 * Usage example (just examples/04-REQ-broker-REP/broker.cpp)
 
