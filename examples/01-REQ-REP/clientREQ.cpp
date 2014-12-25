@@ -37,5 +37,7 @@ int main ()
 	std::cout << " ----------------- \n";
 	
   } // for
+
+  sa.close ();
   return 0;
 } // main ()

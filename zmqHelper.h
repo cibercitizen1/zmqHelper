@@ -244,6 +244,12 @@ namespace zmqHelper {
 	const std::vector<std::string> receiveText () {
 	  return zmqHelper::receiveText (theSocket);
 	}
+
+	// .............................................................
+	// .............................................................
+	const void close () {
+	  theSocket.close ();
+	}
 	
   };
 
