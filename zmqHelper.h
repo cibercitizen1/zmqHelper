@@ -40,58 +40,17 @@ namespace zmqHelper {
 	return more;
   } // ()
 
-  // ---------------------------------------------------------------
-  // ---------------------------------------------------------------
-  template<typename SocketType>
-	void sendText (SocketType & socket, const std::string & msg) {
-	zmq::message_t reply (msg.size());
-	memcpy ((void *) reply.data (), msg.c_str(), msg.size());
-	socket.send (reply);
-  }
 
   // ---------------------------------------------------------------
   // ---------------------------------------------------------------
-  template<typename SocketType>
-	void sendText (SocketType & socket, const std::vector<std::string> & msgs) {
-
-	unsigned int many = msgs.size ();
-	unsigned int i=1;
-	for (auto msg : msgs) {
-	  zmq::message_t reply (msg.size());
-	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
-
-	  int more = i<many ? ZMQ_SNDMORE : 0;
-	  // std::cerr << " sending part " << i << "more = " << more << "\n";
-	  socket.send (reply, more);
-	  i++;
-	}
-  }
-
-  // ---------------------------------------------------------------
-  // ---------------------------------------------------------------
-  template<typename SocketType>
-	const std::vector<std::string> receiveText (SocketType & socket) {
-
-	std::vector<std::string> result;
-
-	do {
-	  zmq::message_t reply;
-	  socket.recv (&reply);
-
-	  // char buff[100];
-	  // memcpy (buff, reply.data(), reply.size());
-	  result.push_back ( std::string { (char*) reply.data(), reply.size() } );
-
-	} while ( hasMore( socket ) );
-
-	return result;
-
-  } // ()
+  template<int SOCKET_TYPE> class SocketAdaptor; 
 
   // ---------------------------------------------------------------
   // ---------------------------------------------------------------
   using SocketType = zmq::socket_t;
-  using FunctionType = std::function<void(SocketType&)>;
+
+  template<int SOCKET_TYPE>
+  using FunctionType = std::function<void(SocketAdaptor<SOCKET_TYPE>&)>;
 
   // ---------------------------------------------------------------
   // ---------------------------------------------------------------
@@ -100,7 +59,7 @@ namespace zmqHelper {
   private:
   
 	// .............................................................
-	FunctionType theCallback;
+	FunctionType<SOCKET_TYPE> theCallback;
 	bool callbackValid = false;
 
 	// .............................................................
@@ -126,7 +85,7 @@ namespace zmqHelper {
 		int some = zmq::poll ( &items[0], 1, 200); // timeout=200ms, some>0 => hay algo
 	  
 		// data has arrived, call the handler
-		if ( some > 0 && callbackValid ) theCallback (theSocket);
+		if ( some > 0 && callbackValid ) theCallback (*this);
 	  } // while
 
 	  // std::cerr << " main acaba \n";
@@ -185,13 +144,7 @@ namespace zmqHelper {
 
 	// .............................................................
 	// .............................................................
-	SocketType & getSocket () {
-	  return theSocket;
-	}
-
-	// .............................................................
-	// .............................................................
-	void onMessage (FunctionType  f) {
+	void onMessage (FunctionType<SOCKET_TYPE>  f) {
    
 	  if (callbackValid) {
 		// running, must first call stop()
@@ -242,14 +195,47 @@ namespace zmqHelper {
 	// .............................................................
 	// .............................................................
 	void sendText (const std::vector<std::string> & msgs) {
-	  zmqHelper::sendText (theSocket, msgs);
+	  
+	  unsigned int many = msgs.size ();
+	  unsigned int i=1;
+	  for (auto msg : msgs) {
+		zmq::message_t reply (msg.size());
+		memcpy ((void *) reply.data (), msg.c_str(), msg.size());
+		
+		int more = i<many ? ZMQ_SNDMORE : 0;
+		// std::cerr << " sending part " << i << "more = " << more << "\n";
+		theSocket.send (reply, more);
+		i++;
+	  }
+	}
+
+	// .............................................................
+	// .............................................................
+	void sendText (const std::string & msg) {
+	  zmq::message_t reply (msg.size());
+	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
+	  theSocket.send (reply);
 	}
 
 	// .............................................................
 	// .............................................................
 	const std::vector<std::string> receiveText () {
-	  return zmqHelper::receiveText (theSocket);
-	}
+
+	  std::vector<std::string> result;
+
+	  do {
+		zmq::message_t reply;
+		theSocket.recv (&reply);
+
+		// char buff[100];
+		// memcpy (buff, reply.data(), reply.size());
+		result.push_back ( std::string { (char*) reply.data(), reply.size() } );
+		
+	  } while ( hasMore( theSocket ) );
+	  
+	  return result;
+	  
+	} // ()
 
 	// .............................................................
 	// .............................................................
