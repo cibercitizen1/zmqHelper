@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <thread>        
+#include <mutex>
 
 namespace zmqHelper {
 
@@ -56,6 +57,7 @@ namespace zmqHelper {
   // ---------------------------------------------------------------
   template<int SOCKET_TYPE>
 	class SocketAdaptor {
+
   private:
   
 	// .............................................................
@@ -64,6 +66,10 @@ namespace zmqHelper {
 
 	// .............................................................
 	std::thread * theThread = 0;
+
+	// .............................................................
+	std::mutex theMutex;
+	std::unique_lock<std::mutex> theLock {theMutex, std::defer_lock}; 
  
 	// .............................................................
 	zmq::context_t context {1};
@@ -76,19 +82,22 @@ namespace zmqHelper {
 	  // std::cerr << " main starts \n";
 
 	  while ( callbackValid ) {
+
+		// 
+		// just poll to see if data has arrived !
+		// 
+		zmq::pollitem_t items [] = { { theSocket, 0, ZMQ_POLLIN, 0} };
+		int some = zmq::poll ( &items[0], 1, 200); // timeout=200ms, some>0 => something arrived
+		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
 	  
-		// poll to know when data has arrived
-		zmq::pollitem_t items [] = {
-		  { theSocket, 0, ZMQ_POLLIN, 0}
-		};
-		// zmq::poll ( &items[0], 1, -1);
-		int some = zmq::poll ( &items[0], 1, 200); // timeout=200ms, some>0 => hay algo
-	  
+		// 
 		// data has arrived, call the handler
+		// 
 		if ( some > 0 && callbackValid ) theCallback (*this);
+
 	  } // while
 
-	  // std::cerr << " main acaba \n";
+	  // std::cerr << " main ends \n";
 	} // ()
 
 	// .............................................................
@@ -196,6 +205,8 @@ namespace zmqHelper {
 	// .............................................................
 	void sendText (const std::vector<std::string> & msgs) {
 	  
+	  theLock.lock();
+
 	  unsigned int many = msgs.size ();
 	  unsigned int i=1;
 	  for (auto msg : msgs) {
@@ -207,19 +218,28 @@ namespace zmqHelper {
 		theSocket.send (reply, more);
 		i++;
 	  }
-	}
+
+	  theLock.unlock();
+	} // ()
 
 	// .............................................................
 	// .............................................................
 	void sendText (const std::string & msg) {
+
+	  theLock.lock();
+
 	  zmq::message_t reply (msg.size());
 	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
 	  theSocket.send (reply);
+
+	  theLock.unlock();
 	}
 
 	// .............................................................
 	// .............................................................
 	const std::vector<std::string> receiveText () {
+
+	  theLock.lock();
 
 	  std::vector<std::string> result;
 
@@ -233,6 +253,8 @@ namespace zmqHelper {
 		
 	  } while ( hasMore( theSocket ) );
 	  
+	  theLock.unlock();
+
 	  return result;
 	  
 	} // ()
@@ -241,10 +263,18 @@ namespace zmqHelper {
 	// .............................................................
 	const void close () {
 	  theSocket.close ();
-	}
-	
-  };
+	} // ()
 
-};
+  public: 
+	// .............................................................
+	// .............................................................
+	// direct access to the socket: caution !
+	SocketType & getSocket () {
+	  return theSocket;
+	} // ()
+	
+  }; // class
+
+}; // namespace
 
 #endif

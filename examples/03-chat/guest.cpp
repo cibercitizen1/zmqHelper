@@ -52,17 +52,16 @@ int main ()
   receiver.onMessage ( callback_SUB );
 
   // send first porst
-
   std::vector<std::string> multi = { CHANNEL, NICK, "hi all" };
   emitter.sendText (multi );
 
   // read and send
   std::string line;
   do {
+	std::cout << " ? ";
 	getline (std::cin, line);
 
 	std::vector<std::string> sending = { CHANNEL, NICK, line };
-	
 	emitter.sendText ( sending ); 
 
   } while (line != "BYE"); 
