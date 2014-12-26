@@ -17,19 +17,18 @@ const std::string CHANNEL = "mainChannel";
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
-void callback_REP (zmq::socket_t & socket ) {
+void callback_REQ (SocketAdaptor<ZMQ_REQ> & socket ) {
 
-  auto lines = receiveText (socket);
-
+  auto lines = socket.receiveText ();
   // ignore the lines (should be "OK")
   
 } // ()
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
-void callback_SUB (zmq::socket_t & socket ) {
+void callback_SUB (SocketAdaptor<ZMQ_SUB> & socket ) {
 
-  auto lines = receiveText (socket);
+  auto lines = socket.receiveText ();
   
   std::cout << " msg received -------------: ";
   for ( auto s : lines ) { std::cout << s << " | "; }
@@ -49,22 +48,20 @@ int main ()
   receiver.connect ("tcp://localhost:8001");
   receiver.subscribe (CHANNEL);
 
-  emitter.onMessage ( callback_REP );
+  emitter.onMessage ( callback_REQ );
   receiver.onMessage ( callback_SUB );
 
   // send first porst
-  auto & socket = emitter.getSocket ();
-
   std::vector<std::string> multi = { CHANNEL, NICK, "hi all" };
-  sendText ( socket, multi );
+  emitter.sendText (multi );
 
   // read and send
   std::string line;
   do {
+	std::cout << " ? ";
 	getline (std::cin, line);
 
 	std::vector<std::string> sending = { CHANNEL, NICK, line };
-	
 	emitter.sendText ( sending ); 
 
   } while (line != "BYE"); 

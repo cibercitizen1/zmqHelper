@@ -12,10 +12,10 @@ using namespace zmqHelper;
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
-void callback (zmq::socket_t & socket ) {
+void callback (SocketAdaptor<ZMQ_REP> & socket ) {
 
   //  Get the request.
-  auto lines = receiveText (socket);
+  auto lines = socket.receiveText ();
   
   std::cout << " received -------- \n";
   for ( auto s : lines ) {
@@ -25,7 +25,7 @@ void callback (zmq::socket_t & socket ) {
 
   // Send the reply
   std::vector<std::string> multi = { "Welt Welt", "World World" };
-  sendText ( socket, multi );
+  socket.sendText ( multi );
 
 }
 

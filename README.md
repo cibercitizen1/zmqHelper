@@ -5,6 +5,7 @@ Helper class and functions on top of zmq C++ binding.
 
 * Customize example/Makefile.in to your local settings (where your zmq library is).
 
+<<<<<<< HEAD
 * The guide says: "If you're sharing sockets across threads, don't. It
 will lead to random weirdness, and crashes."
 	  We have here one dedicated thread waiting for incoming data (onMessage()) which
@@ -13,8 +14,11 @@ will lead to random weirdness, and crashes."
  the main or a different thread sends data or is doing something else with the socket.
  (There  is  a branch  'threadSafety'  to  explore the  protection  of
  send/rec functions with lock/unlock pairs).
+=======
+>>>>>>> threadSafety
 
 * Usage example (just examples/04-REQ-broker-REP/broker.cpp)
+
 
 ```cpp
 #include <zmq.hpp>
@@ -26,7 +30,6 @@ will lead to random weirdness, and crashes."
 using namespace zmqHelper;
 
 // -----------------------------------------------------------------
-// -----------------------------------------------------------------
 int main ()
 {
 
@@ -37,8 +40,8 @@ int main ()
   backend_DEALER.bind ("tcp://*:8001");
 
   // 
-  frontend_ROUTER.onMessage ( [&] (zmq::socket_t & socket ) {
-	  auto lines = receiveText (socket);
+  frontend_ROUTER.onMessage ( [&] (SocketAdaptor<ZMQ_ROUTER> & socket ) {
+	  auto lines = socket.receiveText ();
 	  
 	  std::cout << " msg received on FRONTEND = "; 
 	  for ( auto s : lines ) { std::cout << s << " | "; }
@@ -47,11 +50,10 @@ int main ()
 	  // routing
 	  backend_DEALER.sendText (lines);
 	 
-	}
-	);
+	} );
 
   // 
-  backend_DEALER.onMessage ( [&] (zmq::socket_t & socket ) {
+  backend_DEALER.onMessage ( [&] (SocketAdaptor<ZMQ_DEALER> & socket ) {
 	  auto lines = backend_DEALER.receiveText ();
 	  
 	  std::cout << " msg received on BACKEND = "; 
@@ -61,8 +63,7 @@ int main ()
 	  // routing
 	  frontend_ROUTER.sendText (lines);
 	 
-	}
-	);
+	} );
 
   // never happens because we don't stop the receivers
   frontend_ROUTER.wait ();

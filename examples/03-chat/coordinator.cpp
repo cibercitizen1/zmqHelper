@@ -21,10 +21,8 @@ int main ()
   receiver.bind ("tcp://*:8000");
   emitter.bind ("tcp://*:8001");
 
-  auto & socketemitter = emitter.getSocket ();
-
-  receiver.onMessage ( [&] (zmq::socket_t & socket ) {
-	  auto lines = receiveText (socket);
+  receiver.onMessage ( [&] (decltype(receiver) & socket) {
+	  auto lines = socket.receiveText ();
 	  
 	  std::cout << " msg received= "; 
 	  for ( auto s : lines ) {
@@ -33,10 +31,10 @@ int main ()
 	  std::cout << "\n";
 
 	  // publish
-	  sendText (socketemitter, lines);
+	  emitter.sendText (lines);
 
 	  // answer to the guest
-	  sendText (socket, "OK");
+	  socket.sendText ("OK");
 	 
 	} );
 
