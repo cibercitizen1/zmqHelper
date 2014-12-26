@@ -86,7 +86,7 @@ public:
 
   // .............................................................
   // .............................................................
-  void act (Bank & theBank, std::function<void(const std::string &)> f ) {
+  void act (std::function<void(const std::string &)> f ) {
 	if ( theThread != nullptr) {
 	  return;
 	}
@@ -167,8 +167,8 @@ int main () {
   // curry personRole() from 2 args to 1 arg ( let bank be b1 )
   auto role = [&] (const std::string & s) { return personRole (b1, s); };
 
-  p2.act (b1, role);
-  p1.act (b1, role);
+  p2.act (role);
+  p1.act (role);
 
   p1.join ();
   p2.join ();
