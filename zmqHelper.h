@@ -65,15 +65,16 @@ namespace zmqHelper {
 	bool callbackValid = false;
 
 	// .............................................................
-	std::thread * theThread = 0;
+	std::thread * theThread = nullptr;
 
 	// .............................................................
 	std::mutex theMutex;
-	std::unique_lock<std::mutex> theLock {theMutex, std::defer_lock}; 
+	// std::unique_lock<std::mutex> theLock {theMutex, std::defer_lock}; 
+#define LOCK std::unique_lock<std::mutex> theLock {theMutex};
  
 	// .............................................................
-	zmq::context_t context {1};
-	SocketType  theSocket {context, SOCKET_TYPE};
+	zmq::context_t theContext {1};
+	SocketType  theSocket {theContext, SOCKET_TYPE};
 
 	// .............................................................
 	// .............................................................
@@ -122,6 +123,11 @@ namespace zmqHelper {
 
 	// .............................................................
 	// .............................................................
+	SocketAdaptor (zmq::context_t & aContext ) : theSocket {aContext, SOCKET_TYPE}
+	{ }
+
+	// .............................................................
+	// .............................................................
 	~SocketAdaptor ()  { 
 	  // std::cerr << " destructor \n";
 	  stopReceiving (); 
@@ -153,19 +159,31 @@ namespace zmqHelper {
 
 	// .............................................................
 	// .............................................................
-	void onMessage (FunctionType<SOCKET_TYPE>  f) {
+	void onMessage (FunctionType<SOCKET_TYPE>  f, bool startThread=true) {
    
 	  if (callbackValid) {
-		// running, must first call stop()
+		// running, must first call stopReceiving()
 		return;
 	  }
-   
-	  // std::cerr << " start  begins \n";
+
 	  theCallback = f;
 	  callbackValid = true;
 
-	  theThread = new std::thread ( [this] () { main(); } );
-	}
+	  // start a thread if required, else just call main()
+	  if ( startThread ) {
+		theThread = new std::thread ( [this] () { main(); } );
+	  } else {
+		theThread = nullptr;
+		main ();
+	  }
+
+	} // ()
+
+	// .............................................................
+	// .............................................................
+	void receiveMessages (FunctionType<SOCKET_TYPE>  f) {
+	  onMessage (f, false);
+	} // ()
 
 	// .............................................................
 	// .............................................................
@@ -186,7 +204,7 @@ namespace zmqHelper {
 	// .............................................................
 	// .............................................................
 	void wait () {
-	  if ( theThread == 0 ) {
+	  if ( theThread == nullptr ) {
 		// not running, nothing to do
 		return;
 	  }
@@ -195,7 +213,7 @@ namespace zmqHelper {
 
 	  theThread->join ();
 	  delete (theThread);
-	  theThread = 0;
+	  theThread = nullptr;
 
 	  // std::cerr << " waiting thread DONE \n";
 	
@@ -205,7 +223,7 @@ namespace zmqHelper {
 	// .............................................................
 	void sendText (const std::vector<std::string> & msgs) {
 	  
-	  theLock.lock();
+	  LOCK; // theLock.lock();
 
 	  unsigned int many = msgs.size ();
 	  unsigned int i=1;
@@ -219,27 +237,27 @@ namespace zmqHelper {
 		i++;
 	  }
 
-	  theLock.unlock();
+	  // theLock.unlock();
 	} // ()
 
 	// .............................................................
 	// .............................................................
 	void sendText (const std::string & msg) {
 
-	  theLock.lock();
+	  LOCK; // theLock.lock();
 
 	  zmq::message_t reply (msg.size());
 	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
 	  theSocket.send (reply);
 
-	  theLock.unlock();
+	  // theLock.unlock();
 	}
 
 	// .............................................................
 	// .............................................................
 	const std::vector<std::string> receiveText () {
 
-	  theLock.lock();
+	  LOCK; // theLock.lock();
 
 	  std::vector<std::string> result;
 
@@ -253,7 +271,7 @@ namespace zmqHelper {
 		
 	  } while ( hasMore( theSocket ) );
 	  
-	  theLock.unlock();
+	  // theLock.unlock();
 
 	  return result;
 	  
@@ -272,7 +290,13 @@ namespace zmqHelper {
 	SocketType & getSocket () {
 	  return theSocket;
 	} // ()
-	
+
+	// .............................................................
+	// .............................................................
+	zmq::context_t & getContext () {
+	  return theContext;
+	}
+
   }; // class
 
 }; // namespace
