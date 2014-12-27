@@ -39,7 +39,7 @@ int main () {
 
   sa.onMessage (callback);
   
-  sa.wait (); // never happens
+  sa.wait (); // never returns
 
   return 0;
 } // main ()
