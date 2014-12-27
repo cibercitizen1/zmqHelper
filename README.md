@@ -1,23 +1,23 @@
 zmqHelper
 =========
 
-Helper class and functions on top of zmq C++ binding.
+Helper class and functions on top of zmq C++ binding (zmq.hpp).
 
 * Customize example/Makefile.in to your local settings (where your zmq library is).
-(Remember                                                       export
+(Also remember: export
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/pathToYour/zeromq/lib).
-
 
 * The guide says: "If you're sharing sockets across threads, don't. It
 will lead to random weirdness, and crashes."
-  We have here one dedicated thread waiting for incoming data (onMessage()) which
-	calls the user provided callback() to handle it.
- Thus, danger is limited to the case when the calback is reading data, and
+ You can choose to have one dedicated thread waiting for incoming data (onMessage()) which
+	calls the  user provided callback() to  handle it or use  your own
+	(main) thread.
+ In any case, danger is limited to the case when the calback is reading data, and
  the main or a different thread sends data or is doing something else with the socket.
  (sendText() receiveText() are protected through a lock).
 
-* Usage example (just examples/04-REQ-broker-REP/broker.cpp)
-
+* Please read the examples: they are very simple and representative.
+For instance: (examples/04-REQ-broker-REP/broker.cpp)
 
 ```cpp
 #include <zmq.hpp>

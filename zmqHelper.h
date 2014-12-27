@@ -20,32 +20,50 @@
 #include <unistd.h>
 #include <vector>
 
+
 #include <thread>        
 #include <mutex>
 
 namespace zmqHelper {
 
   // -----------------------------------------------------------------
-  /// 
-  /// hasMore()
   /// @return true if there is more incoming data in the socket
-  /// 
+  /// (i.e. it is a multipart message).
   // -----------------------------------------------------------------
   template<typename SocketType> bool hasMore (SocketType & socket) {
 	int64_t more = 0;           //  Multipart detection
 	size_t more_size = sizeof (more);
 	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
   
-	/*
-	  std::cerr << " more: " << more << " " << more_size << "\n";
-	  if ( more ) {
-	  std::cerr << " more parts\n";
-	  } else {
-	  std::cerr << " NO more parts\n";
-	  }
-	*/
-  
 	return more;
+  } // ()
+
+  // -----------------------------------------------------------------
+  /// @return true if there is data wating to be received in the socket
+  /// The thread blocks for 200ms by default.
+  // -----------------------------------------------------------------
+  template<typename SocketType> bool isDataWaiting (SocketType & socket, long time = 200) {
+		zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLIN, 0} };
+		int some = zmq::poll ( &items[0], 1, time); 
+		// timeout=200ms 
+		// some>0 => something arrived
+		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
+
+		return some>0;
+  } // ()
+
+  // -----------------------------------------------------------------
+  /// @return true if data can be sent
+  /// Note: the thread is blocked in zmq::poll()
+  // -----------------------------------------------------------------
+  template<typename SocketType> bool canSendData (SocketType & socket) {
+		zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLOUT, 0} };
+		int some = zmq::poll ( &items[0], 1, -1); 
+		// timeout=200ms 
+		// some>0 => something can be sent
+		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
+
+		return some>0;
   } // ()
 
 
@@ -90,6 +108,7 @@ namespace zmqHelper {
 	std::mutex theMutex;
 	// std::unique_lock<std::mutex> theLock {theMutex, std::defer_lock}; 
 #define LOCK std::unique_lock<std::mutex> theLock {theMutex};
+	// #define LOCK 
  
 	// .............................................................
 	/// default context for the zmq::socket_t
@@ -101,6 +120,7 @@ namespace zmqHelper {
 	// .............................................................
 	/// Function where the socket is polled to know if data has 
 	/// in arrived. If so, the callback is called.
+	/// @see isDataWaiting()
 	///  (Not sure about the 200ms timeout setting for zmq::poll.
 	///   I think we should not block the thread on the poll (-1)
 	///  to allow other threads send).
@@ -110,20 +130,14 @@ namespace zmqHelper {
 	  // std::cerr << " main starts \n";
 
 	  while ( callbackValid ) {
-
-		// 
-		// just poll to see if data has arrived !
-		// 
-		zmq::pollitem_t items [] = { { theSocket, 0, ZMQ_POLLIN, 0} };
-		int some = zmq::poll ( &items[0], 1, 200); 
-		// timeout=200ms 
-		// some>0 => something arrived
-		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
 	  
 		// 
-		// data has arrived, call the handler
+		// if data has arrived, call the handler
+		// isDataWaiting() blocks for 200ms, then returns.
 		// 
-		if ( some > 0 && callbackValid ) theCallback (*this);
+		if ( isDataWaiting(theSocket) && callbackValid ) {
+		  theCallback (*this);
+		}
 
 	  } // while
 
@@ -271,10 +285,16 @@ namespace zmqHelper {
 	// .............................................................
 	/// Send a multipart text message
 	/// @param msgs The lines of text to send out.
+	/// Call canSendData() to make sure we can send.
+	/// (Don't know it is a good idea to use an assert() for it):
 	// .............................................................
 	void sendText (const std::vector<std::string> & msgs) {
 	  
+	  // is locking a good idea?
 	  LOCK; // theLock.lock();
+
+	  // assert ( canSendData (theSocket) );
+	  if ( ! canSendData (theSocket) ) throw zmq::error_t();
 
 	  unsigned int many = msgs.size ();
 	  unsigned int i=1;
@@ -294,23 +314,30 @@ namespace zmqHelper {
 	// .............................................................
 	/// Send a single line message.
 	/// @param msg The text to send
+	/// Call canSendData() to make sure we can send.
+	/// (Don't know it is a good idea to use an assert() for it):
 	// .............................................................
 	void sendText (const std::string & msg) {
 
+	  // is locking a good idea?
 	  LOCK; // theLock.lock();
+
+	  // assert ( canSendData (theSocket) );
+	  if ( ! canSendData (theSocket) ) throw zmq::error_t();
 
 	  zmq::message_t reply (msg.size());
 	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
 	  theSocket.send (reply);
 
 	  // theLock.unlock();
-	}
+	} // ()
 
 	// .............................................................
 	/// Receive a multipart (also a single part) text message.
 	// .............................................................
 	const std::vector<std::string> receiveText () {
 
+	  // is locking a good idea?
 	  LOCK; // theLock.lock();
 
 	  std::vector<std::string> result;
