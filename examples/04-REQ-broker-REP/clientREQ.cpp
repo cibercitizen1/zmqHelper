@@ -17,7 +17,7 @@ int main ()
 
   SocketAdaptor< ZMQ_REQ > sa;
   std::cerr << "Connecting to hello world server..." << std::endl;
-  sa.connect ("tcp://localhost:5555");
+  sa.connect ("tcp://localhost:8000");
 
   //  Do 10 requests, waiting each time for a response
   for (int i = 1; i <= 10; i++) {
@@ -25,6 +25,8 @@ int main ()
 	//  Send the request
 	std::vector<std::string> multi = { "Hallo Hallo", "Hello Hello" };
 	sa.sendText ( multi );
+
+	std::cerr << " text sent, wating reply\n";
 
 	//  Get the reply.
 	auto lines = sa.receiveText ();

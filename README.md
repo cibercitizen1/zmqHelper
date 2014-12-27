@@ -4,6 +4,9 @@ zmqHelper
 Helper class and functions on top of zmq C++ binding.
 
 * Customize example/Makefile.in to your local settings (where your zmq library is).
+(Remember                                                       export
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/pathToYour/zeromq/lib).
+
 
 * The guide says: "If you're sharing sockets across threads, don't. It
 will lead to random weirdness, and crashes."

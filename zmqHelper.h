@@ -93,7 +93,8 @@ namespace zmqHelper {
  
 	// .............................................................
 	/// default context for the zmq::socket_t
-	zmq::context_t theContext {1};
+	zmq::context_t defaultContext {1};
+	zmq::context_t & theContext {defaultContext};
 	/// the zmq::socket_t with default context
 	SocketType  theSocket {theContext, SOCKET_TYPE};
 
@@ -148,9 +149,10 @@ namespace zmqHelper {
 	// .............................................................
 	/// Default constructor. (Use our own zmq::context).
 	// .............................................................
-	SocketAdaptor ()  { 
-	  // std::cerr << " constructor \n";
-	}
+	SocketAdaptor ()  
+	  { 
+		// std::cerr << " constructor \n";
+	  }
 
 	// .............................................................
 	/// Constructor with a specific context. 
@@ -159,7 +161,7 @@ namespace zmqHelper {
 	/// @param aContext the context we get.
 	// .............................................................
 	SocketAdaptor (zmq::context_t & aContext ) 
-	  : theSocket {aContext, SOCKET_TYPE}
+	  : theContext{aContext}, theSocket {aContext, SOCKET_TYPE}
 	{ }
 
 	// .............................................................
