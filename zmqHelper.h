@@ -113,9 +113,8 @@ namespace zmqHelper {
 	// .............................................................
 	/// default context for the zmq::socket_t
 	zmq::context_t defaultContext {1};
-	zmq::context_t & theContext {defaultContext};
-	/// the zmq::socket_t with default context
-	SocketType  theSocket {theContext, SOCKET_TYPE};
+	zmq::context_t & theContext; 
+	SocketType  theSocket; 
 
 	// .............................................................
 	/// Function where the socket is polled to know if data has 
@@ -161,20 +160,19 @@ namespace zmqHelper {
   public:
 
 	// .............................................................
-	/// Default constructor. (Use our own zmq::context).
+	/// Default constructor. (Use our own zmq::context_t).
 	// .............................................................
-	SocketAdaptor ()  
-	  { 
-		// std::cerr << " constructor \n";
-	  }
+	SocketAdaptor () 
+	  : theContext {defaultContext}, theSocket {theContext, SOCKET_TYPE}
+	  { }
 
 	// .............................................................
 	/// Constructor with a specific context. 
 	/// Necessary when using the 'inproc' transport, as the sockets
-	/// must share a zmq::context.
+	/// must share a zmq::context_t.
 	/// @param aContext the context we get.
 	// .............................................................
-	SocketAdaptor (zmq::context_t & aContext ) 
+	SocketAdaptor (zmq::context_t & aContext) 
 	  : theContext{aContext}, theSocket {aContext, SOCKET_TYPE}
 	{ }
 
