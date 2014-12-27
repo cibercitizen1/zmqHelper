@@ -113,6 +113,9 @@ namespace zmqHelper {
 	// .............................................................
 	/// default context for the zmq::socket_t
 	zmq::context_t defaultContext {1};
+
+	// .............................................................
+	/// The zmq::socket_t and its context
 	zmq::context_t & theContext; 
 	SocketType  theSocket; 
 
