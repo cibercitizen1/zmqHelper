@@ -43,8 +43,8 @@ int main ()
   frontend_ROUTER.onMessage ( [&] (SocketAdaptor<ZMQ_ROUTER> & socket ) {
 	  auto lines = socket.receiveText ();
 	  
-	  std::cout << " msg received on FRONTEND = "; 
-	  for ( auto s : lines ) { std::cout << s << " | "; }
+	  std::cout << " msg received on FRONTEND = |"; 
+	  for ( auto s : lines ) { std::cout << s << "(" << s.size() << ")|"; }
 	  std::cout << "\n";
 
 	  // routing
@@ -56,8 +56,8 @@ int main ()
   backend_DEALER.onMessage ( [&] (SocketAdaptor<ZMQ_DEALER> & socket ) {
 	  auto lines = backend_DEALER.receiveText ();
 	  
-	  std::cout << " msg received on BACKEND = "; 
-	  for ( auto s : lines ) { std::cout << s << " | "; }
+	  std::cout << " msg received on BACKEND = |"; 
+	  for ( auto s : lines ) { std::cout << s << "(" << s.size() << ")|"; }
 	  std::cout << "\n";
 
 	  // routing
