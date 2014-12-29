@@ -151,16 +151,12 @@ namespace zmqHelper {
 	// .............................................................
 	/// Copy construction disallowed.
 	// .............................................................
-	SocketAdaptor (const SocketAdaptor & o)  { 
-	  // std::cerr << " forbidden  copy constructor\n";
-	}
+	SocketAdaptor (const SocketAdaptor & o)  = delete;
 
 	// .............................................................
 	/// Assignment disallowed.
 	// .............................................................
-	SocketAdaptor & operator=(const SocketAdaptor & o)  { 
-	  // std::cerr << " forbidden  assignment \n";
-	}
+	SocketAdaptor & operator=(const SocketAdaptor & o)  = delete;
 
   public:
 
