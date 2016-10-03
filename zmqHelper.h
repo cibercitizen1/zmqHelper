@@ -45,13 +45,18 @@ namespace zmqHelper {
   /// The thread blocks for 200ms by default.
   // -----------------------------------------------------------------
   template<typename SocketType> bool isDataWaiting (SocketType & socket, long time = 200) {
-		zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLIN, 0} };
-		int some = zmq::poll ( &items[0], 1, time); 
-		// timeout=200ms 
-		// some>0 => something arrived
-		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
-
-		return some>0;
+	try {
+	  zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLIN, 0} };
+	  int some = zmq::poll ( &items[0], 1, time); 
+	  // timeout=200ms 
+	  // some>0 => something arrived
+	  // zmq::poll ( &items[0], 1, -1); // -1 = blocking
+	  
+	  return some>0;
+	} catch ( std::exception ex) {
+	  // std::cerr << " isDataWaiting EXCEPTION \n";
+	  return false;
+	}
   } // ()
 
   // -----------------------------------------------------------------
