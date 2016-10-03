@@ -186,7 +186,7 @@ namespace zmqHelper {
 	// .............................................................
 	~SocketAdaptor ()  { 
 	  // std::cerr << " destructor \n";
-	  stopReceiving (); 
+	  // stopReceiving (); 
 	  close();
 	}
 
@@ -365,6 +365,7 @@ namespace zmqHelper {
 	/// Close the socket.
 	// .............................................................
 	const void close () {
+	  stopReceiving (); 
 	  theSocket.close ();
 	} // ()
 
