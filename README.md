@@ -31,7 +31,7 @@ will lead to random weirdness, and crashes." Remember:
 * If you use onMessage() to install a callback, you can choose
 if a new thread is launched to listen for incoming data.  In this case,
 the thread using the the socket, will be different from the thread that created it.
-In this case, you should allow only the thread in the callback to use the socket.
+Thus, you should allow the thread in the callback be the only to use the socket.
 
 
 ```cpp
