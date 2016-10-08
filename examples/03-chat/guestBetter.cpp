@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------
-// guest.cpp
+// guestBetter.cpp
 // ---------------------------------------------------------------
 
 /*
@@ -32,31 +32,12 @@ const std::string CHANNEL = "mainChannel";
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
-void callback_REQ (SocketAdaptor<ZMQ_REQ> & socket ) {
-
-  // BUG: two threads using the same socket
-  // one sends the other one receives.
-  // 
-  // The thread executing this reception
-  // is different than the one in main
-  // sending messages.
-  // Apparently it works fine, for trivial tests.
-
-  auto lines = socket.receiveText ();
-  // ignore the lines (should be "OK")
-  
-} // ()
-
-// ---------------------------------------------------------------
-// ---------------------------------------------------------------
 void callback_SUB (SocketAdaptor<ZMQ_SUB> & socket ) {
 
-  // 
-  // WARNING:
-  // Here, the thread receiving is also different
-  // from the one in main, but only this thread
-  // is using the socket: no contention.
-  // 
+  // CAUTION:
+  // The thread here (receiving) is different
+  // from the one in main, but only the thread
+  // here is using this socket
 
   auto lines = socket.receiveText ();
   
@@ -78,13 +59,14 @@ int main ()
   receiver.connect ("tcp://localhost:8001");
   receiver.subscribe (CHANNEL);
 
-  emitter.onMessage ( callback_REQ );
   receiver.onMessage ( callback_SUB );
 
   // send first porst
   std::vector<std::string> multi = { CHANNEL, NICK, "hi all" };
   emitter.sendText (multi );
-
+  auto lines = emitter.receiveText ();
+  // ignore the lines (should be "OK")
+  
   // read and send
   std::string line;
   do {
@@ -93,6 +75,9 @@ int main ()
 
 	std::vector<std::string> sending = { CHANNEL, NICK, line };
 	emitter.sendText ( sending ); 
+
+	lines = emitter.receiveText ();
+	// ignore the lines (should be "OK")
 
   } while (line != "BYE"); 
   

@@ -1,6 +1,20 @@
 // ---------------------------------------------------------------
 // bank.cpp
 // ---------------------------------------------------------------
+/*
+* ON MULTITHREADING WITH ZeroMQ
+*
+* Remember: 
+*
+*       Do not use or close sockets except in the thread that created them.
+*
+*       Don't share ZeroMQ sockets between threads. 
+*       ZeroMQ sockets are not threadsafe. 
+* 
+*       Isolate data privately within its thread and never share data 
+*       in multiple threads. The only exception to this are ZeroMQ contexts, 
+*       which are threadsafe.
+*/
 
 #include <string>
 #include <vector>
@@ -8,7 +22,7 @@
 
 #include <thread>        
 
-#include "../../zmqHelper.h"
+#include "../../zmqHelper.hpp"
 
 using namespace zmqHelper;
 

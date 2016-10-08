@@ -6,7 +6,7 @@
 #include <string>
 #include <iostream>
 
-#include "../../zmqHelper.h"
+#include "../../zmqHelper.hpp"
 
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
@@ -22,6 +22,9 @@ int main ()
   emitter.bind ("tcp://*:8001");
 
   receiver.onMessage ( [&] (decltype(receiver) & socket) {
+	  // the thread executing this callback is not
+	  // the main-thread, but they are not
+	  // contending for using the sockets
 	  auto lines = socket.receiveText ();
 	  
 	  std::cout << " msg received= "; 

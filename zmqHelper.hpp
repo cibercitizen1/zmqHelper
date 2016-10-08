@@ -1,6 +1,6 @@
 /*
  * -----------------------------------------------------------------
- * zmqHelper.h
+ * zmqHelper.hpp
  *
  * SocketAdaptor class to help using ZeroMQ sockets. 
  * Features C++11
@@ -27,6 +27,19 @@
 // -----------------------------------------------------------------
 namespace zmqHelper {
 
+  // ---------------------------------------------------------------
+  /// forward declaration
+  // ---------------------------------------------------------------
+  template<int ZMQ_SOCKET_TYPE> class SocketAdaptor; 
+
+  // ---------------------------------------------------------------
+  /// useful type declarations
+  // ---------------------------------------------------------------
+  using ZmqSocketType = zmq::socket_t;
+
+  template<int ZMQ_SOCKET_TYPE>
+  using FunctionType = std::function<void(SocketAdaptor<ZMQ_SOCKET_TYPE>&)>;
+
   // -----------------------------------------------------------------
   /// @return true if there is more incoming data in the socket
   /// (i.e. it is a multipart message).
@@ -44,6 +57,7 @@ namespace zmqHelper {
   /// The thread blocks for 200ms by default.
   // -----------------------------------------------------------------
   template<typename SocketType> bool isDataWaiting (SocketType & socket, long time = 200) {
+	// std::cerr << " >>> \t\t\t\t\t\t\t isDataWaiting() time = " << time << "\n";
 	try {
 	  zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLIN, 0} };
 	  int some = zmq::poll ( &items[0], 1, time); 
@@ -59,10 +73,41 @@ namespace zmqHelper {
   } // ()
 
   // -----------------------------------------------------------------
+  /// Wait (blocked) for incoming data on any of the listed sockets.
+  /// (isDataWaiting() version for n-sockets, blocked)
+  /// @return the pointer of the zmq socket for which data is available.
+  // -----------------------------------------------------------------
+  ZmqSocketType * waitForDataInSockets (const std::vector<ZmqSocketType *> & list) {
+	try {
+	  zmq::pollitem_t items [list.size()]; 
+	  for (unsigned int i=0; i<=list.size()-1; i++) {
+		items[i] = { *list[i], 0, ZMQ_POLLIN, 0};
+	  }
+	  
+	  zmq::poll ( &items[0], list.size(), -1);
+	  
+	  for (unsigned int i=0; i<=list.size()-1; i++) {
+		if ( items[i].revents & ZMQ_POLLIN ) {
+		  return list[i];
+		}
+	  }
+
+	  return nullptr;
+
+	} catch ( std::exception ex) {
+	  // std::cerr << " waitForDataInSockets EXCEPTION \n";
+	  
+	  return nullptr;
+	}
+	
+  } // ()
+
+  // -----------------------------------------------------------------
   /// @return true if data can be sent
   /// Note: the thread is blocked in zmq::poll()
   // -----------------------------------------------------------------
   template<typename SocketType> bool canSendData (SocketType & socket) {
+	try {
 		zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLOUT, 0} };
 		int some = zmq::poll ( &items[0], 1, -1); 
 		// timeout=200ms 
@@ -70,21 +115,13 @@ namespace zmqHelper {
 		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
 
 		return some>0;
+
+	} catch ( std::exception ex) {
+	  // std::cerr << " canSendData EXCEPTION \n";
+	  return false;
+	}
   } // ()
 
-
-  // ---------------------------------------------------------------
-  /// forward declaration
-  // ---------------------------------------------------------------
-  template<int SOCKET_TYPE> class SocketAdaptor; 
-
-  // ---------------------------------------------------------------
-  /// useful type declarations
-  // ---------------------------------------------------------------
-  using SocketType = zmq::socket_t;
-
-  template<int SOCKET_TYPE>
-  using FunctionType = std::function<void(SocketAdaptor<SOCKET_TYPE>&)>;
 
   // ---------------------------------------------------------------
   /// 
@@ -92,14 +129,14 @@ namespace zmqHelper {
   /// It wraps a zmq::socket_t.
   /// 
   // ---------------------------------------------------------------
-  template<int SOCKET_TYPE>
+  template<int ZMQ_SOCKET_TYPE>
 	class SocketAdaptor {
 
   private:
   
 	// .............................................................
 	/// Funcion to call when data arrives.
-	FunctionType<SOCKET_TYPE> theCallback;
+	FunctionType<ZMQ_SOCKET_TYPE> theCallback;
 	/// Is the callback valid?
 	bool callbackValid = false;
 
@@ -109,12 +146,15 @@ namespace zmqHelper {
 	std::thread * theThread = nullptr;
 
 	// .............................................................
-	/// Trying to protect two threads sending/receiving at the same
+	// Trying to protect two threads sending/receiving at the same
+	// THIS CAN'T HAPPEN. FORBIDEN BY 0MQ: TWO THREADS SHOULDN'T
+	// SHARE A SOCKET
 	/// time.
-	std::mutex theMutex;
+	// std::mutex theMutex;
 	// std::unique_lock<std::mutex> theLock {theMutex, std::defer_lock}; 
-#define LOCK std::unique_lock<std::mutex> theLock {theMutex};
+	// #define LOCK std::unique_lock<std::mutex> theLock {theMutex};
 	// #define LOCK 
+	// 
  
 	// .............................................................
 	/// default context for the zmq::socket_t
@@ -123,13 +163,18 @@ namespace zmqHelper {
 	// .............................................................
 	/// The zmq::socket_t and its context
 	zmq::context_t & theContext; 
-	SocketType  theSocket; 
+	ZmqSocketType  theZmqSocket; 
 
 	// .............................................................
 	/// Function where the socket is polled to know if data has 
 	/// in arrived. If so, the callback is called.
 	/// @see isDataWaiting()
-	///  (Not sure about the 200ms timeout setting for zmq::poll.
+	/// 
+	/// CAUTION: no other threads may access this socket
+	/// so, let's block
+	/// 
+	///  Previous version comment:
+	/// (Not sure about the 200ms timeout setting for zmq::poll.
 	///   I think we should not block the thread on the poll (-1)
 	///  to allow other threads send).
 	// .............................................................
@@ -141,9 +186,9 @@ namespace zmqHelper {
 	  
 		// 
 		// if data has arrived, call the handler
-		// isDataWaiting() blocks for 200ms, then returns.
+		// isDataWaiting() blocks: -1 param
 		// 
-		if ( isDataWaiting(theSocket) && callbackValid ) {
+		if ( isDataWaiting(theZmqSocket, -1) && callbackValid ) {
 		  theCallback (*this);
 		}
 
@@ -168,7 +213,7 @@ namespace zmqHelper {
 	/// Default constructor. (Use our own zmq::context_t).
 	// .............................................................
 	SocketAdaptor () 
-	  : theContext {defaultContext}, theSocket {theContext, SOCKET_TYPE}
+	  : theContext {defaultContext}, theZmqSocket {theContext, ZMQ_SOCKET_TYPE}
 	  { }
 
 	// .............................................................
@@ -178,15 +223,15 @@ namespace zmqHelper {
 	/// @param aContext the context we get.
 	// .............................................................
 	SocketAdaptor (zmq::context_t & aContext) 
-	  : theContext{aContext}, theSocket {aContext, SOCKET_TYPE}
+	  : theContext{aContext}, theZmqSocket {aContext, ZMQ_SOCKET_TYPE}
 	{ }
 
 	// .............................................................
 	/// Destructor. Clean up.
 	// .............................................................
 	~SocketAdaptor ()  { 
-	  // std::cerr << " destructor \n";
-	  // stopReceiving (); 
+	  // std::cerr << " > > > > > zmqHelper.destructor() called \n";
+	  stopReceiving (); 
 	  close();
 	}
 
@@ -194,36 +239,53 @@ namespace zmqHelper {
 	/// bind to an url
 	// .............................................................
 	void bind (const std::string & url)  { 
-	  theSocket.bind (url.c_str());
+	  theZmqSocket.bind (url.c_str());
 	}
 
 	// .............................................................
 	/// connect to an url
 	// .............................................................
 	void connect (const std::string & url)  { 
-	  theSocket.connect (url.c_str());
+	  theZmqSocket.connect (url.c_str());
 	}
 
 	// .............................................................
 	/// disconnect from the url
 	// .............................................................
 	void disconnect (const std::string & url)  { 
-	  theSocket.disconnect (url.c_str());
+	  theZmqSocket.disconnect (url.c_str());
+	}
+
+	// .............................................................
+	/// connected?
+	// .............................................................
+	bool isConnected () {
+	  return theZmqSocket.connected();
 	}
 
 	// .............................................................
 	/// subscribe (pub-sub patter,  ZMQ_SUB sockets)
 	// .............................................................
 	void subscribe (const std::string & filter)  { 
-	  theSocket.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
+	  theZmqSocket.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
 	}
 
 	// .............................................................
 	/// Install f as the function to call when data arrives in.
 	/// @param startThread By default a dedicated thread is created
 	/// to wait for incoming data.
+	/// 
+	/// Caution with this. 
+	/// 
+	/// ZMQ discourages that two threads sharing the same socket.
+	/// Even the case that one is only receiving (i.e. code installed with onMessage())
+	/// an a diferent one is sending.
+	/// 
+	/// 
+	/// Polling is the recomended way to go
+	/// 
 	// .............................................................
-	void onMessage (FunctionType<SOCKET_TYPE>  f, bool startThread=true) {
+	void onMessage (FunctionType<ZMQ_SOCKET_TYPE>  f, bool startThread=true) {
    
 	  if (callbackValid) {
 		// running, must first call stopReceiving()
@@ -245,7 +307,7 @@ namespace zmqHelper {
 	// .............................................................
 	/// The calling thread itself waits for incoming data.
 	// .............................................................
-	void receiveMessages (FunctionType<SOCKET_TYPE>  f) {
+	void receiveMessages (FunctionType<ZMQ_SOCKET_TYPE>  f) {
 	  onMessage (f, false);
 	} // ()
 
@@ -259,7 +321,7 @@ namespace zmqHelper {
 		return;
 	  }
 
-	  // std::cerr << " stopping thread \n";
+	  // std::cerr << " stopping thread now \n";
 
 	  // this stops the thread loop
 	  callbackValid = false;
@@ -271,18 +333,16 @@ namespace zmqHelper {
 	/// Join the thread in main() (if any) 
 	// .............................................................
 	void wait () {
+
 	  if ( theThread == nullptr ) {
 		// no running thread: nothing to do
 		return;
 	  }
 
-	  // std::cerr << " waiting thread \n";
-
 	  theThread->join ();
 	  delete (theThread);
 	  theThread = nullptr;
 
-	  // std::cerr << " waiting thread DONE \n";
 	} // ()
 
 	// .............................................................
@@ -293,11 +353,11 @@ namespace zmqHelper {
 	// .............................................................
 	void sendText (const std::vector<std::string> & msgs) {
 	  
-	  // is locking a good idea?
-	  LOCK; // theLock.lock();
+	  // is locking a good idea? No
+	  // LOCK; // theLock.lock();
 
-	  // assert ( canSendData (theSocket) );
-	  if ( ! canSendData (theSocket) ) throw zmq::error_t();
+	  // assert ( canSendData (theZmqSocket) );
+	  if ( ! canSendData (theZmqSocket) ) throw zmq::error_t();
 
 	  unsigned int many = msgs.size ();
 	  unsigned int i=1;
@@ -307,7 +367,7 @@ namespace zmqHelper {
 		
 		int more = i<many ? ZMQ_SNDMORE : 0;
 		// std::cerr << " sending part " << i << "more = " << more << "\n";
-		theSocket.send (reply, more);
+		theZmqSocket.send (reply, more);
 		i++;
 	  }
 
@@ -322,38 +382,38 @@ namespace zmqHelper {
 	// .............................................................
 	void sendText (const std::string & msg) {
 
-	  // is locking a good idea?
-	  LOCK; // theLock.lock();
+	  // is locking a good idea? NO
+	  // LOCK; // theLock.lock();
 
-	  // assert ( canSendData (theSocket) );
-	  if ( ! canSendData (theSocket) ) throw zmq::error_t();
+	  // assert ( canSendData (theZmqSocket) );
+	  if ( ! canSendData (theZmqSocket) ) throw zmq::error_t();
 
 	  zmq::message_t reply (msg.size());
 	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
-	  theSocket.send (reply);
+	  theZmqSocket.send (reply);
 
 	  // theLock.unlock();
 	} // ()
 
 	// .............................................................
-	/// Receive a multipart (also a single part) text message.
+	/// Receive a multipart (also a single part) text message. (blocking)
 	// .............................................................
 	const std::vector<std::string> receiveText () {
 
-	  // is locking a good idea?
-	  LOCK; // theLock.lock();
+	  // is locking a good idea? no
+	  // LOCK; // theLock.lock();
 
 	  std::vector<std::string> result;
 
 	  do {
 		zmq::message_t reply;
-		theSocket.recv (&reply);
+		theZmqSocket.recv (&reply);
 
 		// char buff[100];
 		// memcpy (buff, reply.data(), reply.size());
 		result.push_back ( std::string { (char*) reply.data(), reply.size() } );
 		
-	  } while ( hasMore( theSocket ) );
+	  } while ( hasMore( theZmqSocket ) );
 	  
 	  // theLock.unlock();
 
@@ -362,11 +422,24 @@ namespace zmqHelper {
 	} // ()
 
 	// .............................................................
+	/// Receive, multipart with timeout
+	// .............................................................
+	bool receiveTextInTimeout (std::vector<std::string> & out, long time) {
+	  if (isDataWaiting (theZmqSocket, time)) {
+		out = receiveText ();
+		return true;
+	  }
+
+	  return false;
+	} // ()
+
+	// .............................................................
 	/// Close the socket.
 	// .............................................................
 	const void close () {
+	  // std::cerr << " > > > > > zmqHelper.close() called \n";
 	  stopReceiving (); 
-	  theSocket.close ();
+   	  theZmqSocket.close ();
 	} // ()
 
   public: 
@@ -375,8 +448,8 @@ namespace zmqHelper {
 	/// not covered here is needed.
 	/// @return Reference to the socket.
 	// .............................................................
-	SocketType & getSocket () {
-	  return theSocket;
+	ZmqSocketType & getZmqSocket () {
+	  return theZmqSocket;
 	} // ()
 
 	// .............................................................
@@ -393,5 +466,3 @@ namespace zmqHelper {
 }; // namespace
 
 #endif
-
-// http://www.stack.nl/~dimitri/doxygen/manual/docblocks.html

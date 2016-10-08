@@ -6,13 +6,18 @@
 #include <vector>
 #include <stdlib.h>
 
-#include "../../zmqHelper.h"
+#include "../../zmqHelper.hpp"
 
 using namespace zmqHelper;
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
 void callback (SocketAdaptor<ZMQ_REP> & socket ) {
+
+  // The main-thread created the socket,
+  // and it is different from the thread
+  // using it, but they don't contend
+  // so I guess this is safe.
 
   //  Get the request.
   auto lines = socket.receiveText ();

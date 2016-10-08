@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------
-// broker.cpp (Thread safe version)
+// broker.cpp (NOT THREAD SAFE VERSION)
 // ---------------------------------------------------------------
 
 #include <zmq.hpp>
@@ -75,66 +75,56 @@ int main ()
   SocketAdaptor< ZMQ_ROUTER > frontend_ROUTER {theContext};
   SocketAdaptor< ZMQ_DEALER > backend_DEALER {theContext};
 
-  // but it seems working too, if each socket is having its own context
-  /*
-  SocketAdaptor< ZMQ_ROUTER > frontend_ROUTER;
-  SocketAdaptor< ZMQ_DEALER > backend_DEALER;
-  */
-
   frontend_ROUTER.bind ("tcp://*:8000");
   backend_DEALER.bind ("tcp://*:8001");
 
-  //
-  //
-  //
-  while (true) {
+  // 
+  // WARNING: this code seems to run fine for
+  // the simple case but it is bogus according
+  // to Zmq rules
+  // 
+  frontend_ROUTER.onMessage ( [&] (SocketAdaptor<ZMQ_ROUTER> & socket ) {
 
-        std::vector<std::string> lines;
-        
-        // 
-        //  wait (blocking poll) for data in any socket
-        // 
-        std::vector< zmqHelper::ZmqSocketType * > list
-          = { & frontend_ROUTER.getZmqSocket(), & backend_DEALER.getZmqSocket() };
+	  // 
+	  // BUG 1. The thread here is different of the thread that
+	  // created the sockets (thread-main).
+	  // 
+	  // BUG 2. The thread here is accessing two sockets, shared
+	  // with the thread on the other callback
+	  // 
+	  auto lines = socket.receiveText ();
+	  
+	  std::cout << " msg received on FRONTEND = |"; 
+	  for ( auto s : lines ) { std::cout << s << "(" << s.size() << ")|"; }
+	  std::cout << "\n";
 
-        zmqHelper::ZmqSocketType *  who = zmqHelper::waitForDataInSockets ( list );
+	  // routing
+	  backend_DEALER.sendText (lines);
+	 
+	} );
 
-        // 
-        //  there is data, where is it from?
-        // 
-        if ( who == & frontend_ROUTER.getZmqSocket() ) {
-          // 
-          // from frontend, read ...
-          // 
-          lines = frontend_ROUTER.receiveText ();
+  // 
+  backend_DEALER.onMessage ( [&] (SocketAdaptor<ZMQ_DEALER> & socket ) {
+	  // 
+	  // BUG 1. The thread here is different of the thread that
+	  // created the sockets (thread-main).
+	  // 
+	  // BUG 2. The thread here is accessing two sockets, shared
+	  // with the thread on the other callback
+	  // 
+	  auto lines = backend_DEALER.receiveText ();
+	  
+	  std::cout << " msg received on BACKEND = |"; 
+	  for ( auto s : lines ) { std::cout << s << "(" << s.size() << ")|"; }
+	  std::cout << "\n";
 
-          // 
-          // ... and resend
-          // 
-          backend_DEALER.sendText( lines );
+	  // routing
+	  frontend_ROUTER.sendText (lines);
+	 
+	} );
 
-		  std::cout << " ----------->>>>>>> from frontend to backend \n";
-
-        }
-
-        else if ( who == & backend_DEALER.getZmqSocket() ) {
-          // 
-          // from backend, read ...
-          // 
-          lines = backend_DEALER.receiveText ();
-
-          // 
-          // ... and resend
-          // 
-          frontend_ROUTER.sendText( lines );
-
-		  std::cout << " <<<<<<------- from backend to frontend \n";
-		} 
-
-		else if ( who == nullptr ) {
-		  std::cerr << "Error in poll ?\n";
-		}
-
-  } // while (true)
+  // never happens because we don't stop the receivers
+  frontend_ROUTER.wait ();
+  backend_DEALER.wait ();
 
 } // () main
