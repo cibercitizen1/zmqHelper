@@ -73,8 +73,15 @@ public:
   // .............................................................
   // .............................................................
   void closeDoors () {
-	theSocket.stopReceiving ();
+	// std::cerr << " Bank.closeDoors(), closing ... \n";
 	theSocket.close ();
+	// std::cerr << " DONE Bank.closeDoors() \n";
+  }
+
+  // .............................................................
+  // .............................................................
+  ~Bank () {
+	closeDoors ();
   }
 };
 
@@ -120,6 +127,12 @@ public:
 	theThread = nullptr;
 
   } // ()
+
+  // .............................................................
+  // .............................................................
+  ~Person () {
+	join (); // sure?
+  }
 };
 
 // ---------------------------------------------------------------
@@ -164,8 +177,8 @@ int main () {
 		//  Get the request.
 		auto lines = socket.receiveText ();
 
-		std::cout << bankName << " received: | ";
-		for ( auto s : lines ) { std::cout << s << " | "; }
+		std::cout << bankName << " received: |";
+		for ( auto s : lines ) { std::cout << s << "| "; }
 		std::cout << "\n";
 		
 		// Send the reply
@@ -184,8 +197,12 @@ int main () {
   p2.act (role);
   p1.act (role);
 
+  std::cout << " main waits for threads \n";
+
   p1.join ();
   p2.join ();
+
+  std::cout << " threads ended, closing doors \n";
 
   b1.closeDoors ();
 

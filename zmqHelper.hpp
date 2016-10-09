@@ -231,7 +231,6 @@ namespace zmqHelper {
 	// .............................................................
 	~SocketAdaptor ()  { 
 	  // std::cerr << " > > > > > zmqHelper.destructor() called \n";
-	  stopReceiving (); 
 	  close();
 	}
 
@@ -288,7 +287,7 @@ namespace zmqHelper {
 	void onMessage (FunctionType<ZMQ_SOCKET_TYPE>  f, bool startThread=true) {
    
 	  if (callbackValid) {
-		// running, must first call stopReceiving()
+		// running, must first call stop_receiving()
 		return;
 	  }
 
@@ -312,10 +311,8 @@ namespace zmqHelper {
 	} // ()
 
 	// .............................................................
-	/// Uninstall the callback (the loop on main() ends, and
-	/// its thread is joined.)
 	// .............................................................
-	void stopReceiving () {
+	void unsetCallbackValid () {
 	  if (! callbackValid) {
 		// not running, nothing to do
 		return;
@@ -325,14 +322,24 @@ namespace zmqHelper {
 
 	  // this stops the thread loop
 	  callbackValid = false;
+	}
 
-	  wait ();
+
+	// .............................................................
+	/// Uninstall the callback (the loop on main() ends, and
+	/// its thread is joined.)
+	// .............................................................
+	void stopReceiving () {
+	  unsetCallbackValid ();
+	  // Warning: if the thread is blocked
+	  // we are going to be blocked here as well.
+	  joinTheThread ();
 	}
 
 	// .............................................................
 	/// Join the thread in main() (if any) 
 	// .............................................................
-	void wait () {
+	void joinTheThread () {
 
 	  if ( theThread == nullptr ) {
 		// no running thread: nothing to do
@@ -438,14 +445,25 @@ namespace zmqHelper {
 	// .............................................................
 	const void close () {
 	  // std::cerr << " > > > > > zmqHelper.close() called \n";
+	  unsetCallbackValid ();
+   	  theZmqSocket.close (); /* close before stop receving
+							  * because if the thread is blocked
+							  * (receiving for instance)
+							  * the join() in stop_Receiving()
+							  * will block us here as well
+							  */
 	  stopReceiving (); 
-   	  theZmqSocket.close ();
 	} // ()
 
   public: 
 	// .............................................................
 	/// Direct access to the wrapped socket if a function
 	/// not covered here is needed.
+	/// 
+	///    Warning: 
+	/// now the class lose control over the socket
+	/// and thread-safety (only one thread uses the socket "at a time")
+	/// can't be guaranteed
 	/// @return Reference to the socket.
 	// .............................................................
 	ZmqSocketType & getZmqSocket () {
