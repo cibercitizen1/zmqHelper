@@ -101,7 +101,13 @@ private:
   // 
   // 
   // 
-  zmqHelper::SocketAdaptor< ZMQ_REP > internalRepSocket;
+  zmq::context_t & sharedContext;
+
+  // 
+  // previous version: the thread in constructor creates
+  // the socket but it is used by the thread in main
+  // 
+  // zmqHelper::SocketAdaptor< ZMQ_REP > internalRepSocket;
 
   // 
   // 
@@ -111,6 +117,21 @@ private:
   // -------------------------------------------------------------
   // -------------------------------------------------------------
   void main (){
+	//
+	// a new thread executes this
+	// 
+
+	//
+	// the socket is created and use here
+	//
+	// remember RAII (resourse adquisition is initialization)
+	// 
+	zmqHelper::SocketAdaptor< ZMQ_REP > internalRepSocket {sharedContext};
+
+	//
+	//
+	//
+	internalRepSocket.connect ("inproc://innerChannel");
 
 	//
 	//
@@ -139,20 +160,15 @@ private:
 	  internalRepSocket.sendText ("echo of: " + lines[0] + " " + lines[1] );
 	  
 	} // while
-  }
+  } // ()
 
 public:
 
   // -------------------------------------------------------------
   // -------------------------------------------------------------
   Worker ( zmq::context_t & sharedContext_) :
-	internalRepSocket {sharedContext_}
+	sharedContext {sharedContext_}
   {
-	//
-	//
-	//
-	internalRepSocket.connect ("inproc://innerChannel");
-
 	//
 	//
 	// 
@@ -209,7 +225,7 @@ int main () {
   //
   while (true) {
 
-	std::cout << "\n\n while(true): waitinf for clients ... \n";
+	std::cout << "\n\n while(true): waiting for clients ... \n";
 
 	std::vector<std::string>  lines;
 
