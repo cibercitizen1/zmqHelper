@@ -45,7 +45,7 @@ int main () {
 	  //
 	  // CAUTION: Thread-main created socket sa (used here)
 	  // but this is run by a different thread.
-	  // Anyway, thread-main will be stopped on sa.wait()
+	  // Anyway, thread-main will be stopped on sa.joinTheThread()
 	  // for ever, not contending for the socket.
 	  //
 	  
@@ -64,7 +64,7 @@ int main () {
 	  
 	} );
   
-  sa.wait (); // never returns because we don't stop the thread on 'onMessage()'
+  sa.joinTheThread (); // never returns because we don't stop the thread on 'onMessage()'
 
   return 0;
 } // main ()
@@ -76,7 +76,7 @@ void callback (SocketAdaptor<ZMQ_REP> & socket) {
   //
   // CAUTION: Thread-main created socket sa (used here)
   // but this is run by a different thread.
-  // Anyway, thread-main will be stopped on sa.wait()
+  // Anyway, thread-main will be stopped on sa.joinTheThread()
   // for ever, not contending for the socket.
   //
 

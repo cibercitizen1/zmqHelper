@@ -233,14 +233,14 @@ int main () {
 	//  wait (blocking poll) for data in either of the sockets
 	// 
 	std::vector< zmqHelper::ZmqSocketType * > list
-	  = { & outerRouterSocket.getZmqSocket(), & innerDealerSocket.getZmqSocket() };
+	  = {  outerRouterSocket.getZmqSocket(),  innerDealerSocket.getZmqSocket() };
 
 	zmqHelper::ZmqSocketType *  who = zmqHelper::waitForDataInSockets ( list );
 
         // 
         //  there is data
         // 
-        if ( who == & outerRouterSocket.getZmqSocket() ) {
+        if ( who ==  outerRouterSocket.getZmqSocket() ) {
           // 
           // from client
           // 
@@ -252,7 +252,7 @@ int main () {
           innerDealerSocket.sendText( lines );
 
         }
-        else if ( who == & innerDealerSocket.getZmqSocket() ) {
+        else if ( who ==  innerDealerSocket.getZmqSocket() ) {
           // 
           // reply from worker
           // 

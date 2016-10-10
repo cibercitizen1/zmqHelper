@@ -13,6 +13,8 @@
 // -----------------------------------------------------------------
 int main ()
 {
+
+  const int N = 10;
   using namespace zmqHelper;
 
   SocketAdaptor< ZMQ_REQ > sa;
@@ -20,7 +22,9 @@ int main ()
   sa.connect ("tcp://localhost:5555");
 
   //  Do 10 requests, waiting each time for a response
-  for (int i = 1; i <= 10; i++) {
+  for (int i = 1; i <= N; i++) {
+
+	std::cout << " i = " << i << "\n";
 
 	//  Send the request
 	std::vector<std::string> multi = { "Hallo Hallo", "Hello Hello" };
@@ -36,6 +40,8 @@ int main ()
 	std::cout << " ----------------- \n";
 	
   } // for
+
+  std::cout << " OK \n" << std::flush;
 
   sa.close ();
   return 0;

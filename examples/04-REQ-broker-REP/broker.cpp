@@ -95,14 +95,14 @@ int main ()
         //  wait (blocking poll) for data in any socket
         // 
         std::vector< zmqHelper::ZmqSocketType * > list
-          = { & frontend_ROUTER.getZmqSocket(), & backend_DEALER.getZmqSocket() };
+          = {  frontend_ROUTER.getZmqSocket(),  backend_DEALER.getZmqSocket() };
 
         zmqHelper::ZmqSocketType *  who = zmqHelper::waitForDataInSockets ( list );
 
         // 
         //  there is data, where is it from?
         // 
-        if ( who == & frontend_ROUTER.getZmqSocket() ) {
+        if ( who ==  frontend_ROUTER.getZmqSocket() ) {
           // 
           // from frontend, read ...
           // 
@@ -117,7 +117,7 @@ int main ()
 
         }
 
-        else if ( who == & backend_DEALER.getZmqSocket() ) {
+        else if ( who ==  backend_DEALER.getZmqSocket() ) {
           // 
           // from backend, read ...
           // 

@@ -42,7 +42,7 @@ int main ()
 	} );
 
   // never returns (receiver threds are never stopped)
-  emitter.wait ();
-  receiver.wait ();
+  emitter.joinTheThread ();
+  receiver.joinTheThread ();
 
 } // () main

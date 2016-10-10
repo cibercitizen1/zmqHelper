@@ -124,7 +124,7 @@ int main ()
 	} );
 
   // never happens because we don't stop the receivers
-  frontend_ROUTER.wait ();
-  backend_DEALER.wait ();
+  frontend_ROUTER.joinTheThread ();
+  backend_DEALER.joinTheThread ();
 
 } // () main

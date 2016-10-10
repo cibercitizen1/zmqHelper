@@ -44,10 +44,10 @@ namespace zmqHelper {
   /// @return true if there is more incoming data in the socket
   /// (i.e. it is a multipart message).
   // -----------------------------------------------------------------
-  template<typename SocketType> bool hasMore (SocketType & socket) {
+  template<typename SocketType> bool hasMore (SocketType * socket) {
 	int64_t more = 0;           //  Multipart detection
 	size_t more_size = sizeof (more);
-	socket.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
   
 	return more;
   } // ()
@@ -56,10 +56,10 @@ namespace zmqHelper {
   /// @return true if there is data wating to be received in the socket
   /// The thread blocks for 200ms by default.
   // -----------------------------------------------------------------
-  template<typename SocketType> bool isDataWaiting (SocketType & socket, long time = 200) {
+  template<typename SocketType> bool isDataWaiting (SocketType * socket, long time = 200) {
 	// std::cerr << " >>> \t\t\t\t\t\t\t isDataWaiting() time = " << time << "\n";
 	try {
-	  zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLIN, 0} };
+	  zmq::pollitem_t items [] = { { *socket, 0, ZMQ_POLLIN, 0} };
 	  int some = zmq::poll ( &items[0], 1, time); 
 	  // timeout=200ms 
 	  // some>0 => something arrived
@@ -106,16 +106,16 @@ namespace zmqHelper {
   /// @return true if data can be sent
   /// Note: the thread is blocked in zmq::poll()
   // -----------------------------------------------------------------
-  template<typename SocketType> bool canSendData (SocketType & socket) {
+  template<typename SocketType> bool canSendData (SocketType * socket) {
 	try {
-		zmq::pollitem_t items [] = { { socket, 0, ZMQ_POLLOUT, 0} };
-		int some = zmq::poll ( &items[0], 1, -1); 
-		// timeout=200ms 
-		// some>0 => something can be sent
-		// zmq::poll ( &items[0], 1, -1); // -1 = blocking
-
-		return some>0;
-
+	  zmq::pollitem_t items [] = { { (*socket), 0, ZMQ_POLLOUT, 0} };
+	  int some = zmq::poll ( &items[0], 1, -1); 
+	  // timeout=200ms 
+	  // some>0 => something can be sent
+	  // zmq::poll ( &items[0], 1, -1); // -1 = blocking
+	  
+	  return some>0;
+	  
 	} catch ( std::exception ex) {
 	  // std::cerr << " canSendData EXCEPTION \n";
 	  return false;
@@ -163,7 +163,7 @@ namespace zmqHelper {
 	// .............................................................
 	/// The zmq::socket_t and its context
 	zmq::context_t & theContext; 
-	ZmqSocketType  theZmqSocket; 
+	ZmqSocketType  * theZmqSocket = nullptr;
 
 	// .............................................................
 	/// Function where the socket is polled to know if data has 
@@ -213,7 +213,7 @@ namespace zmqHelper {
 	/// Default constructor. (Use our own zmq::context_t).
 	// .............................................................
 	SocketAdaptor () 
-	  : theContext {defaultContext}, theZmqSocket {theContext, ZMQ_SOCKET_TYPE}
+	  : theContext {defaultContext}, theZmqSocket { new ZmqSocketType {theContext, ZMQ_SOCKET_TYPE} }
 	  { }
 
 	// .............................................................
@@ -223,7 +223,7 @@ namespace zmqHelper {
 	/// @param aContext the context we get.
 	// .............................................................
 	SocketAdaptor (zmq::context_t & aContext) 
-	  : theContext{aContext}, theZmqSocket {aContext, ZMQ_SOCKET_TYPE}
+	  : theContext{aContext}, theZmqSocket { new ZmqSocketType {aContext, ZMQ_SOCKET_TYPE} }
 	{ }
 
 	// .............................................................
@@ -238,35 +238,35 @@ namespace zmqHelper {
 	/// bind to an url
 	// .............................................................
 	void bind (const std::string & url)  { 
-	  theZmqSocket.bind (url.c_str());
+	  theZmqSocket->bind (url.c_str());
 	}
 
 	// .............................................................
 	/// connect to an url
 	// .............................................................
 	void connect (const std::string & url)  { 
-	  theZmqSocket.connect (url.c_str());
+	  theZmqSocket->connect (url.c_str());
 	}
 
 	// .............................................................
 	/// disconnect from the url
 	// .............................................................
 	void disconnect (const std::string & url)  { 
-	  theZmqSocket.disconnect (url.c_str());
+	  theZmqSocket->disconnect (url.c_str());
 	}
 
 	// .............................................................
 	/// connected?
 	// .............................................................
 	bool isConnected () {
-	  return theZmqSocket.connected();
+	  return theZmqSocket->connected();
 	}
 
 	// .............................................................
 	/// subscribe (pub-sub patter,  ZMQ_SUB sockets)
 	// .............................................................
 	void subscribe (const std::string & filter)  { 
-	  theZmqSocket.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
+	  theZmqSocket->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
 	}
 
 	// .............................................................
@@ -374,7 +374,7 @@ namespace zmqHelper {
 		
 		int more = i<many ? ZMQ_SNDMORE : 0;
 		// std::cerr << " sending part " << i << "more = " << more << "\n";
-		theZmqSocket.send (reply, more);
+		theZmqSocket->send (reply, more);
 		i++;
 	  }
 
@@ -397,7 +397,7 @@ namespace zmqHelper {
 
 	  zmq::message_t reply (msg.size());
 	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
-	  theZmqSocket.send (reply);
+	  theZmqSocket->send (reply);
 
 	  // theLock.unlock();
 	} // ()
@@ -414,7 +414,7 @@ namespace zmqHelper {
 
 	  do {
 		zmq::message_t reply;
-		theZmqSocket.recv (&reply);
+		theZmqSocket->recv (&reply);
 
 		// char buff[100];
 		// memcpy (buff, reply.data(), reply.size());
@@ -444,15 +444,23 @@ namespace zmqHelper {
 	/// Close the socket.
 	// .............................................................
 	const void close () {
-	  // std::cerr << " > > > > > zmqHelper.close() called \n";
+	  if ( theZmqSocket == nullptr) {
+		return;
+	  }
+
 	  unsetCallbackValid ();
-   	  theZmqSocket.close (); /* close before stop receving
+   	  theZmqSocket->close (); /* close before stop receving
 							  * because if the thread is blocked
 							  * (receiving for instance)
 							  * the join() in stop_Receiving()
 							  * will block us here as well
 							  */
+
+	  delete theZmqSocket;
+	  theZmqSocket = nullptr;
+
 	  stopReceiving (); 
+
 	} // ()
 
   public: 
@@ -461,12 +469,12 @@ namespace zmqHelper {
 	/// not covered here is needed.
 	/// 
 	///    Warning: 
-	/// now the class lose control over the socket
+	/// now the class loses control over the socket
 	/// and thread-safety (only one thread uses the socket "at a time")
 	/// can't be guaranteed
 	/// @return Reference to the socket.
 	// .............................................................
-	ZmqSocketType & getZmqSocket () {
+	ZmqSocketType * getZmqSocket () {
 	  return theZmqSocket;
 	} // ()
 

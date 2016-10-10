@@ -44,7 +44,7 @@ int main () {
 
   sa.onMessage (callback);
   
-  sa.wait (); // never returns
+  sa.joinTheThread (); // never returns
 
   return 0;
 } // main ()
