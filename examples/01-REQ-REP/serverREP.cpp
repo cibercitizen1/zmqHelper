@@ -34,35 +34,36 @@ void callback (SocketAdaptor<ZMQ_REP> & socket) ;
 // ---------------------------------------------------------------
 int main () {
 
-  SocketAdaptor< ZMQ_REP > sa; 
+  SocketAdaptor< ZMQ_REP > sa ( 
 
-  sa.bind ("tcp://*:5555");
+							   //  would also work: sa.onMessage (callback);
+							   
+							   [&]  (decltype(sa) & socket ) -> void { 
 
-  //  would also work: sa.onMessage (callback);
+								 std::cerr << " *** user provided callback starting \n";
+								 
+								 socket.bind ("tcp://*:5555");
+								 
+								 while (true) {
+								   
+								   //  Get the request.
+								   auto lines = socket.receiveText ();
+								   
+								   std::cout << " received -------- \n";
+								   for ( auto s : lines ) {
+									 std::cout << s << "\n";
+								   }
+								   std::cout << " ----------------- \n";
+								   
+								   // Send the reply
+								   std::vector<std::string> multi = { "Welt Welt", "World World" };
+								   socket.sendText ( multi );
+								 } // true
+								 
+							   } 
+								); // sa
 
-  sa.onMessage (  [&]  (decltype(sa) & socket ) -> void { 
-
-	  //
-	  // CAUTION: Thread-main created socket sa (used here)
-	  // but this is run by a different thread.
-	  // Anyway, thread-main will be stopped on sa.joinTheThread()
-	  // for ever, not contending for the socket.
-	  //
-	  
-	  //  Get the request.
-	  auto lines = socket.receiveText ();
-	  
-	  std::cout << " received -------- \n";
-	  for ( auto s : lines ) {
-		std::cout << s << "\n";
-	  }
-	  std::cout << " ----------------- \n";
-	  
-	  // Send the reply
-	  std::vector<std::string> multi = { "Welt Welt", "World World" };
-	  socket.sendText ( multi );
-	  
-	} );
+  // sa.bind ("tcp://*:5555"); now, main-thread can't do this
   
   sa.joinTheThread (); // never returns because we don't stop the thread on 'onMessage()'
 
@@ -73,24 +74,5 @@ int main () {
 // ---------------------------------------------------------------
 void callback (SocketAdaptor<ZMQ_REP> & socket) {
 
-  //
-  // CAUTION: Thread-main created socket sa (used here)
-  // but this is run by a different thread.
-  // Anyway, thread-main will be stopped on sa.joinTheThread()
-  // for ever, not contending for the socket.
-  //
-
-  //  Get the request.
-  auto lines = socket.receiveText ();
-  
-  std::cout << " received -------- \n";
-  for ( auto s : lines ) {
-	std::cout << s << "\n";
-  }
-  std::cout << " ----------------- \n";
-
-  // Send the reply
-  std::vector<std::string> multi = { "Welt Welt", "World World" };
-  socket.sendText ( multi );
 
 }
