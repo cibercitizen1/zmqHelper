@@ -28,10 +28,7 @@ will lead to random weirdness, and crashes." Remember:
     - Create one ZeroMQ context at the start of your process, 
       and pass that to all threads that you want to connect via inproc sockets.
 
-* If you use onMessage() to install a callback, you can choose
-if a new thread is launched to listen for incoming data.  In this case,
-the thread using the the socket, will be different from the thread that created it.
-Thus, you should allow the thread in the callback be the only to use the socket.
+* Now, we enforce the above rules. Only the thread creating a socket may use it.
 
 
 ```cpp
