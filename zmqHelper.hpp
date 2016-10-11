@@ -45,7 +45,7 @@ namespace zmqHelper {
   /// @return true if there is more incoming data in the socket
   /// (i.e. it is a multipart message).
   // -----------------------------------------------------------------
-  template<typename SocketType> bool hasMore (SocketType * socket) {
+  bool hasMore (ZmqSocketType * socket) {
 	int64_t more = 0;           //  Multipart detection
 	size_t more_size = sizeof (more);
 	socket->getsockopt(ZMQ_RCVMORE, &more, &more_size);
@@ -57,7 +57,7 @@ namespace zmqHelper {
   /// @return true if there is data wating to be received in the socket
   /// The thread blocks for 200ms by default.
   // -----------------------------------------------------------------
-  template<typename SocketType> bool isDataWaiting (SocketType * socket, long time = 200) {
+  bool isDataWaiting (ZmqSocketType * socket, long time = 200) {
 	// std::cerr << " >>> \t\t\t\t\t\t\t isDataWaiting() time = " << time << "\n";
 	try {
 	  zmq::pollitem_t items [] = { { *socket, 0, ZMQ_POLLIN, 0} };
@@ -176,7 +176,6 @@ namespace zmqHelper {
 	// .............................................................
 	// .............................................................
 	void createTheThread () {
-	  // AQUI
 
 	  theCallback = nullptr;
 
@@ -201,9 +200,8 @@ namespace zmqHelper {
 	// .............................................................
 	// .............................................................
 	void awakeTheThread () {
-	  // AQUI
 
-	  std::cerr << " > > > > > zmqHelper.awakeTheThread() called \n";
+	  // std::cerr << " > > > > > zmqHelper.awakeTheThread() called \n";
 
 	  assert ( theCallback != nullptr );
 	  assert ( theThread != nullptr );
@@ -211,7 +209,7 @@ namespace zmqHelper {
 	  threadRunning = true;
 	  conditionVar.notify_one();
 
-	   std::cerr << " > > > > > zmqHelper.awakeTheThread() thread notified \n";
+	   // std::cerr << " > > > > > zmqHelper.awakeTheThread() thread notified \n";
 	} // ()
 
 	// .............................................................
@@ -219,7 +217,7 @@ namespace zmqHelper {
 	// .............................................................
 	  void assignTaskToTheThread ( FunctionType<ZMQ_SOCKET_TYPE>  f)
 	{ 
-	   std::cerr << " > > > > > zmqHelper.assignTaskToTheThread() called \n";
+	   // std::cerr << " > > > > > zmqHelper.assignTaskToTheThread() called \n";
 
 	  if (! isThreadIdle () ) {
 		throw ThreadIsNotIddleException {};
@@ -241,6 +239,8 @@ namespace zmqHelper {
 	/// 
 	// .............................................................
 	void stopAndJoinTheThread () {
+
+	  // std::cerr << " > > > > > zmqHelper.stopAndJoin () called \n" << std::flush;
 
 	  if ( theThread == nullptr ) {
 		// no running thread: nothing to do
@@ -287,13 +287,35 @@ namespace zmqHelper {
 		return;
 	  }
 
-	  //
-	  // join and clean up
-	  //
-	  theThread->join ();
+	  if ( theThread->get_id() == std::this_thread::get_id() ) {
+		// the inner thread  can't join itserlf
+		return;
+	  }
 
-	  delete theThread;
-	  theThread = nullptr;
+	  if ( ! theThread->joinable() ) {
+		// the thread can't be joined: nothing to do
+		return;
+	  }
+
+	  try {
+
+		//
+		// join and clean up
+		//
+		theThread->join ();
+
+		// std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
+		
+		delete theThread;
+		theThread = nullptr;
+		
+	  } catch ( std::exception ex) {
+		std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in delete" << ex.what() << "\n";
+		std::cerr << " > > > > > this thread = " << std::this_thread::get_id() << "\n";
+		return;
+	  }
+		
+	   // std::cerr << " > > > > > zmqHelper.joinTheThread(): done \n";
 
 	} // ()
 
@@ -309,7 +331,7 @@ namespace zmqHelper {
 	// .............................................................
 	void main_Thread () {
 
-	   std::cerr << " > > > > > zmqHelper.mainThread() called \n";
+	   // std::cerr << " > > > > > zmqHelper.mainThread() called \n";
 
 	  Lock theLock {theMutex};
 
@@ -320,15 +342,15 @@ namespace zmqHelper {
 	  // 
 	  while (threadRunning) {
 
-
 		while ( theCallback == nullptr) {
-		  // while, just to make sure we try to block (wait)
+		  // while: just to make sure we try to block (wait)
 		  // if there is no task to do
-		   std::cerr << " > > > > > zmqHelper.mainThread(): waiting  \n";
-		  conditionVar.wait (theLock) ; // wait 
+		   // std::cerr << " > > > > > zmqHelper.mainThread(): waiting  \n";
+		   if ( ! threadRunning ) break;
+		   conditionVar.wait (theLock) ; // wait 
 		}
 
-		 std::cerr << " > > > > > zmqHelper.mainThread(): unlocked  \n";
+		 // std::cerr << " > > > > > zmqHelper.mainThread(): unlocked  \n";
 
 		if ( ! threadRunning ) break;
 	  
@@ -383,18 +405,16 @@ namespace zmqHelper {
 
 	// .............................................................
 	// .............................................................
-	// AQUI
 	SocketAdaptor (zmq::context_t & aContext, FunctionType<ZMQ_SOCKET_TYPE>  f)
 	  : theContext{aContext}
 	{ 
 	  createTheThread ();
 	  assignTaskToTheThread ( f );
-	  std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
+	  // std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
 	}
 
 	// .............................................................
 	// .............................................................
-	// AQUI
 	SocketAdaptor (FunctionType<ZMQ_SOCKET_TYPE>  f)
 	  : SocketAdaptor {defaultContext, f}
 	{ } 
@@ -404,7 +424,9 @@ namespace zmqHelper {
 	// .............................................................
 	~SocketAdaptor ()  { 
 	  // std::cerr << " > > > > > zmqHelper.destructor() called \n";
-	  close();
+	  if ( ownerThreadId == std::this_thread::get_id() ) {
+		close();
+	  }
 	}
 
 	// .............................................................
@@ -502,40 +524,37 @@ namespace zmqHelper {
 	// .............................................................
 	/// Receive a multipart (also a single part) text message. (blocking)
 	// .............................................................
-	const std::vector<std::string> receiveText () {
-
-	  checkThreadIdentity (); 
-
-	  std::vector<std::string> result;
-
-	  do {
-		zmq::message_t reply;
-		theZmqSocket->recv (&reply);
-
-		// char buff[100];
-		// memcpy (buff, reply.data(), reply.size());
-		result.push_back ( std::string { (char*) reply.data(), reply.size() } );
-		
-	  } while ( hasMore( theZmqSocket ) );
-	  
-
-	  return result;
-	  
-	} // ()
+	bool receiveText (std::vector<std::string> & out) {
+	  // std::cerr << " \t\t\t\t\t\t\t receiveText called \n";
+	  return receiveTextInTimeout (out, -1);
+	}
 
 	// .............................................................
-	/// Receive, multipart with timeout
+	/// Receive a  multipart with timeout
 	// .............................................................
 	bool receiveTextInTimeout (std::vector<std::string> & out, long time) {
 
 	  checkThreadIdentity (); 
 
-	  if (isDataWaiting (theZmqSocket, time)) {
-		out = receiveText ();
-		return true;
-	  }
+	  out.clear ();
 
-	  return false;
+	  if (! isDataWaiting (theZmqSocket, time)) {
+		return false;
+	  }
+		
+	  do {
+		zmq::message_t reply;
+		theZmqSocket->recv (&reply); // this blocks as well, but it makes the program to abort
+		// if a different thread closes the socket
+		
+		// char buff[100];
+		// memcpy (buff, reply.data(), reply.size());
+		out.push_back ( std::string { (char*) reply.data(), reply.size() } );
+		
+	  } while ( hasMore( theZmqSocket ) );
+
+	  return true;
+	
 	} // ()
 
 	// .............................................................
@@ -543,11 +562,16 @@ namespace zmqHelper {
 	// .............................................................
 	const void close () {
 
-	  // checkThreadIdentity (); what if the destructor-thread calls this?
+	  checkThreadIdentity (); // destructor-thread calls close() only
+	  // if owner of the socket
+
+	  
 
 	  if (theZmqSocket == nullptr) {
 		return;
 	  }
+
+	  // std::cerr << " > > > > > zmqHelper.close () closing socket \n" << std::flush;
 
 	  //
 	  // close the socket and clean up
@@ -556,6 +580,15 @@ namespace zmqHelper {
 	  delete theZmqSocket;
 	  theZmqSocket = nullptr;
 
+	  // std::cerr << " > > > > > zmqHelper.close () socket closed \n" << std::flush;
+
+	  //
+	  // give the inner thread a chance to run
+	  // (is it blocked in receiveText?)
+	  //
+	  std::this_thread::yield(); 
+
+	  // std::cerr << " > > > > > zmqHelper.close () stopping thread() \n" << std::flush;
 	  //
 	  //
 	  //

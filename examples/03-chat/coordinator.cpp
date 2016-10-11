@@ -21,28 +21,28 @@ int main ()
   receiver.bind ("tcp://*:8000");
   emitter.bind ("tcp://*:8001");
 
-  receiver.onMessage ( [&] (decltype(receiver) & socket) {
-	  // the thread executing this callback is not
-	  // the main-thread, but they are not
-	  // contending for using the sockets
-	  auto lines = socket.receiveText ();
+  std::vector<std::string> lines;
+
+  bool receiving = true;
+
+  while (receiving) {
+
+	// read
+	receiving = receiver.receiveText (lines);
 	  
-	  std::cout << " msg received= "; 
-	  for ( auto s : lines ) {
-		std::cout << s << " | ";
-	  }
-	  std::cout << "\n";
+	std::cout << " msg received= |"; 
+	for ( auto s : lines ) {
+	  std::cout << s << "|";
+	}
+	std::cout << "\n";
 
-	  // publish
-	  emitter.sendText (lines);
+	// publish
+	emitter.sendText (lines);
 
-	  // answer to the guest
-	  socket.sendText ("OK");
-	 
-	} );
+	// answer to the guest
+	receiver.sendText ("OK");
 
-  // never returns (receiver threds are never stopped)
-  emitter.joinTheThread ();
-  receiver.joinTheThread ();
+  } // while
+
 
 } // () main

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------
-// guest.cpp
+// guestBetter.cpp
 // ---------------------------------------------------------------
 
 /*
@@ -30,76 +30,74 @@ using namespace zmqHelper;
 const std::string NICK = "fooBar";
 const std::string CHANNEL = "mainChannel";
 
-// ---------------------------------------------------------------
-// ---------------------------------------------------------------
-void callback_REQ (SocketAdaptor<ZMQ_REQ> & socket ) {
-
-  // BUG: two threads using the same socket
-  // one sends the other one receives.
-  // 
-  // The thread executing this reception
-  // is different than the one in main
-  // sending messages.
-  // Apparently it works fine, for trivial tests.
-
-  auto lines = socket.receiveText ();
-  // ignore the lines (should be "OK")
-  
-} // ()
-
-// ---------------------------------------------------------------
-// ---------------------------------------------------------------
-void callback_SUB (SocketAdaptor<ZMQ_SUB> & socket ) {
-
-  // 
-  // WARNING:
-  // Here, the thread receiving is also different
-  // from the one in main, but only this thread
-  // is using the socket: no contention.
-  // 
-
-  auto lines = socket.receiveText ();
-  
-  std::cout << " msg received ------------- |";
-  for ( auto s : lines ) { std::cout << s << "|"; }
-  std::cout << "\n\n";
-
-} // ()
-
+// -----------------------------------------------------------------
 // -----------------------------------------------------------------
 int main ()
 {
 
+  std::vector<std::string> recLines;
+  std::string line;
+
+  bool receiving = true;
+
   SocketAdaptor< ZMQ_REQ > emitter;
-  SocketAdaptor< ZMQ_SUB > receiver;
+  SocketAdaptor< ZMQ_SUB > receiver { 
+	[&receiving] (SocketAdaptor<ZMQ_SUB> & socket ) -> void {
+	  socket.connect ("tcp://localhost:8001");
+	  socket.subscribe (CHANNEL);
+	  
+	  std::vector<std::string> lines;
+	  
+	  while (receiving) {
+		if ( ! socket.receiveText (lines) ) break;
+		
+		std::cout << " msg received: |" << std::flush;
+		for ( auto s : lines ) { std::cout << s << "|" << std::flush; }
+		std::cout << "\n\n" << std::flush;
+	  } // while
+	  
+	  socket.close ();
+	  
+	  std::cout << "callback_SUB ended !!!!! \n" << std::flush;
+	  
+	}
+  };
 
   emitter.connect ("tcp://localhost:8000");
 
-  receiver.connect ("tcp://localhost:8001");
-  receiver.subscribe (CHANNEL);
-
-  emitter.onMessage ( callback_REQ );
-  receiver.onMessage ( callback_SUB );
-
+  //
   // send first porst
+  //
   std::vector<std::string> multi = { CHANNEL, NICK, "hi all" };
   emitter.sendText (multi );
 
-  // read and send
-  std::string line;
+  emitter.receiveText (recLines);
+  // ignore recLines (should be "OK")
+
   do {
-	std::cout << " ? ";
+	//
+	// read ...
+	//
+	std::cout << " ? " << std::flush;
 	getline (std::cin, line);
 
+	//
+	// ... and send
+	//
 	std::vector<std::string> sending = { CHANNEL, NICK, line };
 	emitter.sendText ( sending ); 
 
-  } while (line != "BYE"); 
-  
-  // stop threads
-  emitter.stopReceiving ();
-  receiver.stopReceiving ();
+	emitter.receiveText (recLines);
+	// ignore answer (should be "OK")
 
-  std::cout << " happy ending \n";
+  } while (line != "BYE" && line != ""); 
+
+  receiving = false;
+  
+  //
+  // close socket
+  //
+  emitter.close ();
+  // receiver.close (); // not this one, not owned by thread-main
 
 } // ()

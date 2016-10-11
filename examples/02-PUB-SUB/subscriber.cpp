@@ -14,19 +14,18 @@ int main () {
 
   using namespace zmqHelper;
 
+  std::vector<std::string> lines;
+
   SocketAdaptor< ZMQ_SUB > sa; 
 
   sa.connect ("tcp://localhost:5555");
   sa.subscribe ("news");
 
-  while (true) {
+  while ( sa.receiveText (lines) ) {
 	
-	std::cout << " waiting -------- \n";
-
-	//  Get the news
-	auto lines = sa.receiveText ();
+	//  there are news
 	  
-	std::cout << " received -------- \n";
+	std::cout << " news -------- \n";
 	for ( auto s : lines ) {
 	  std::cout << s << "\n";
 	}

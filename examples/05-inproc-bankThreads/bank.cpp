@@ -54,15 +54,11 @@ public:
 
   // .............................................................
   // .............................................................
-  Bank (const std::string & bn, std::function<void(SocketType &)> f)  : bankName (bn) 
+  Bank (const std::string & bn, std::function<void(SocketType &)> f)  
+	: bankName (bn) ,
+	  theSocket { f }
   {
-	std::string url = "inproc://bank" + bankName;
-	// std::cout << " bank url = " << url << std::endl;
-	
-	theSocket.bind (url);
-	
-	theSocket.onMessage ( f );
-  } //  ()
+  } 
   
   // ..............................................................
   // ..............................................................
@@ -72,16 +68,8 @@ public:
 
   // .............................................................
   // .............................................................
-  void closeDoors () {
-	// std::cerr << " Bank.closeDoors(), closing ... \n";
-	theSocket.close ();
-	// std::cerr << " DONE Bank.closeDoors() \n";
-  }
-
-  // .............................................................
-  // .............................................................
   ~Bank () {
-	closeDoors ();
+	theSocket.joinTheThread ();
   }
 };
 
@@ -141,6 +129,8 @@ void personRole (Bank & bank, const std::string & name)  {
 	
 	// Two threads communicate over inproc, using a shared context.
 	auto theSocket = new SocketAdaptor<ZMQ_REQ> { bank.getContext() };
+
+	std::vector<std::string> lines;
 	
 	std::string url = "inproc://bank" + bank.getName();
 	theSocket->connect (url);
@@ -154,10 +144,10 @@ void personRole (Bank & bank, const std::string & name)  {
 	  theSocket->sendText (multi);
 
 	  //  get reply
-	  auto lines = theSocket->receiveText ();
+	  theSocket->receiveText (lines);
 	  
-	  std::cout << name << " received: | ";
-	  for ( auto s : lines ) { std::cout << s << " | "; }
+	  std::cout << name << " received:| ";
+	  for ( auto s : lines ) { std::cout << s << "|"; }
 	  std::cout << "\n";
 
 	  sleep (1);
@@ -171,19 +161,42 @@ void personRole (Bank & bank, const std::string & name)  {
 // ---------------------------------------------------------------
 int main () {
 
-  auto bankName = "SwissBankers";
+  std::string bankName = "SwissBankers";
+
+  bool doorsOpen = true;
 
   auto bankRole =  [&]  (SocketAdaptor<ZMQ_REP> & socket ) -> void { 
-		//  Get the request.
-		auto lines = socket.receiveText ();
 
-		std::cout << bankName << " received: |";
-		for ( auto s : lines ) { std::cout << s << "| "; }
-		std::cout << "\n";
-		
-		// Send the reply
-		std::vector<std::string> multi = { "OK", lines[0] };
-		socket.sendText ( multi );
+	
+	std::vector<std::string> lines;
+
+	socket.bind ( "inproc://bank" + bankName );
+
+	while (doorsOpen) { 
+	  if (! socket.receiveTextInTimeout (lines, 500) ) continue;
+
+	  /*
+	   * while (doorsOpen && socket.receiveText (lines) ) {
+	   * This way, the thread gets stalled on receiving
+	   * and even closing the socket (by a different thread)
+	   * can't awake it. So we use a the receive with timeout
+	   */
+	
+	  std::cout << bankName << " received: |";
+	  for ( auto s : lines ) { std::cout << s << "|"; }
+	  std::cout << "\n";
+	  
+	  // Send the reply
+	  std::vector<std::string> multi = { "OK", lines[0] };
+	  socket.sendText ( multi );
+
+	  std::cerr << " \t\t\t\t\t banckRole, receiving ... \n";
+	} // while
+
+	socket.close ();
+
+	std::cerr << " bankRole ended \n";
+
   };
 
   Bank b1 (bankName, bankRole);
@@ -197,16 +210,17 @@ int main () {
   p2.act (role);
   p1.act (role);
 
-  std::cout << " main waits for threads \n";
+  std::cout << " main waits for person threads \n";
 
   p1.join ();
   p2.join ();
 
-  std::cout << " threads ended, closing doors \n";
+  std::cout << " person threads ended, closing doors \n";
+  doorsOpen = false;
 
-  b1.closeDoors ();
+  // std::cerr << " main thread = " << std::this_thread::get_id() << "\n";
 
-  std::cout << " happy ending \n";
+  std::cout << " ================ happy ending ==================\n" << std::flush;
 
   return 0;
 } // main ()

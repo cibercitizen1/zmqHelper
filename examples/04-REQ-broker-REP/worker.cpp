@@ -14,23 +14,29 @@ using namespace zmqHelper;
 // ---------------------------------------------------------------
 void callback (SocketAdaptor<ZMQ_REP> & socket ) {
 
-  // The main-thread created the socket,
-  // and it is different from the thread
-  // using it, but they don't contend
-  // so I guess this is safe.
+  socket.connect ("tcp://localhost:8001");
 
-  //  Get the request.
-  auto lines = socket.receiveText ();
+  std::vector<std::string> lines;
+
+  const int N = 5;
+  int count = 0;
+
+  while (socket.receiveText (lines) ) {
   
-  std::cout << " received -------- \n";
-  for ( auto s : lines ) {
-	std::cout << s << "\n";
-  }
-  std::cout << " ----------------- \n";
+	  std::cout << " worker received -------- \n";
+	  for ( auto s : lines ) {
+		std::cout << s << "\n";
+	  }
+	  std::cout << " ----------------- \n";
+	  
+	  // Send the reply
+	  std::vector<std::string> multi = { "Welt Welt", "World World" };
+	  socket.sendText ( multi );
 
-  // Send the reply
-  std::vector<std::string> multi = { "Welt Welt", "World World" };
-  socket.sendText ( multi );
+	  if ( ++count == N) break;
+  } // while
+
+  socket.close ();
 
 }
 
@@ -38,13 +44,13 @@ void callback (SocketAdaptor<ZMQ_REP> & socket ) {
 // ---------------------------------------------------------------
 int main () {
 
-  SocketAdaptor< ZMQ_REP > sa; 
+  // the worker only serves N (5) requests
+  // so start many workers, or restar this programa
+  // serveral time, not to leave clients unatended
 
-  sa.connect ("tcp://localhost:8001");
-
-  sa.onMessage (callback);
+  SocketAdaptor< ZMQ_REP > sa  { callback };
   
-  sa.joinTheThread (); // never returns
+  sa.joinTheThread (); 
 
   return 0;
 } // main ()

@@ -15,6 +15,8 @@ int main ()
 {
   using namespace zmqHelper;
 
+  std::vector<std::string> lines;
+
   SocketAdaptor< ZMQ_REQ > sa;
   std::cerr << "Connecting to hello world server..." << std::endl;
   sa.connect ("tcp://localhost:8000");
@@ -28,8 +30,8 @@ int main ()
 
 	std::cerr << " text sent, wating reply\n";
 
-	//  Get the reply.
-	auto lines = sa.receiveText ();
+	//  Get the reply (ignore return)
+	sa.receiveText (lines);
 	  
 	std::cout << " received -------- \n";
 	for ( auto s : lines ) {

@@ -138,16 +138,18 @@ private:
 	// 
 	std::cout << " ***** worker main " << this
 			  << " starts **** \n";
+
 	
 	//
 	//
 	// 
-	while (true) {
-	  std::cout << " worker waiting for socket \n";
-	  auto lines = internalRepSocket.receiveText ();
+
+	std::vector<std::string>  lines;
+
+	while ( internalRepSocket.receiveText (lines) ) {
 
 	  std::cout << " ** worker: " << this;
-	  showLines (" worker ", lines);
+	  showLines (" got ", lines);
 
 	  //
 	  // do some work !
@@ -225,7 +227,7 @@ int main () {
   //
   while (true) {
 
-	std::cout << "\n\n while(true): waiting for clients ... \n";
+	std::cout << "\n\n while(true): waiting for clients/worker ... \n";
 
 	std::vector<std::string>  lines;
 
@@ -244,26 +246,34 @@ int main () {
           // 
           // from client
           // 
-          lines = outerRouterSocket.receiveText ();
+          if ( outerRouterSocket.receiveText (lines) ) {
 
-          // 
-          // delegate to worker
-          // 
-          innerDealerSocket.sendText( lines );
+			std::cout << " server: client -> data -> worker \n";
+			// 
+			// delegate to worker
+			// 
+			innerDealerSocket.sendText( lines );
+		  } else {
+			std::cout << " outer socket: awoken for nothing ?????????????????\n";
+		  }
 
         }
         else if ( who ==  innerDealerSocket.getZmqSocket() ) {
           // 
           // reply from worker
           // 
-          lines = innerDealerSocket.receiveText ();
+          if ( innerDealerSocket.receiveText (lines) ) {
 
-          // 
-          //  answer the client
-          // 
-          outerRouterSocket.sendText( lines );
+			std::cout << " server: client <- data <- worker \n";
+			// 
+			//  answer the client
+			// 
+			outerRouterSocket.sendText( lines );
+		  } else {
+			std::cout << " inner socket: awoken for nothing ?????????????????\n";
+		  }
         } else {
-          std::cout << " server: error in polling? \n";
+          std::cout << " ****** server: error in polling? \n";
         }
 
   } // while

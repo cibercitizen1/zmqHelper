@@ -13,9 +13,10 @@
 // -----------------------------------------------------------------
 int main ()
 {
-
-  const int N = 10;
   using namespace zmqHelper;
+
+  std::vector<std::string> lines;
+  const int N = 10;
 
   SocketAdaptor< ZMQ_REQ > sa;
   std::cerr << "Connecting to hello world server..." << std::endl;
@@ -31,7 +32,7 @@ int main ()
 	sa.sendText ( multi );
 
 	//  Get the reply.
-	auto lines = sa.receiveText ();
+	sa.receiveText (lines); // ignoring bool returned. Guess it's true
 	  
 	std::cout << " received -------- \n";
 	for ( auto s : lines ) {

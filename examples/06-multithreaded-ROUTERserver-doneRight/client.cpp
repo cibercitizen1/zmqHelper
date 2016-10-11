@@ -17,10 +17,10 @@ int main() {
 
   SocketAdaptor< ZMQ_DEALER > sa; 
   sa.connect ("tcp://localhost:5580");
-
   
   std::vector<std::string> multi;
   std::vector<std::string> lines;
+  int i;
 
   const int N = 20;
 
@@ -33,9 +33,9 @@ int main() {
 
   std::cout << " done. Waiting for answers. \n";
 
-  for (int i=1; i<=N; i++) {
+  for (i=1; i<=N; i++) {
 
-	lines = sa.receiveText ();
+	if (! sa.receiveText (lines) ) break;
 	  
 	std::cout << " got answer : -------- \n";
 	for ( auto s : lines ) {
@@ -43,6 +43,10 @@ int main() {
 	}
 	std::cout << " ----------------- \n";
   }
+
+  assert (i == N+1);
+
+  std::cout << " happy ending \n";
 
   return 0;
 } // main ()

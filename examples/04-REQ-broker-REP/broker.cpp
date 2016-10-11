@@ -75,7 +75,7 @@ int main ()
   SocketAdaptor< ZMQ_ROUTER > frontend_ROUTER {theContext};
   SocketAdaptor< ZMQ_DEALER > backend_DEALER {theContext};
 
-  // but it seems working too, if each socket is having its own context
+  // It seems working too, if each socket is having its own context
   /*
   SocketAdaptor< ZMQ_ROUTER > frontend_ROUTER;
   SocketAdaptor< ZMQ_DEALER > backend_DEALER;
@@ -106,7 +106,7 @@ int main ()
           // 
           // from frontend, read ...
           // 
-          lines = frontend_ROUTER.receiveText ();
+          frontend_ROUTER.receiveText (lines);
 
           // 
           // ... and resend
@@ -121,7 +121,7 @@ int main ()
           // 
           // from backend, read ...
           // 
-          lines = backend_DEALER.receiveText ();
+          backend_DEALER.receiveText (lines);
 
           // 
           // ... and resend
