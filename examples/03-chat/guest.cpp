@@ -49,7 +49,11 @@ int main ()
 	  std::vector<std::string> lines;
 	  
 	  while (receiving) {
-		if ( ! socket.receiveText (lines) ) break;
+		// wait for messages, but only for. Then awake and 
+		// check we have to keep receiving
+		// before it was: if ( ! socket.receiveText (lines) ) break;
+		if ( ! socket.receiveTextInTimeout (lines, 1000) )  continue;
+
 		
 		std::cout << " msg received: |" << std::flush;
 		for ( auto s : lines ) { std::cout << s << "|" << std::flush; }

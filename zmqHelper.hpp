@@ -310,12 +310,12 @@ namespace zmqHelper {
 		theThread = nullptr;
 		
 	  } catch ( std::exception ex) {
-		std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in delete" << ex.what() << "\n";
+		std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in ->join" << ex.what() << "\n";
 		std::cerr << " > > > > > this thread = " << std::this_thread::get_id() << "\n";
 		return;
 	  }
 		
-	   // std::cerr << " > > > > > zmqHelper.joinTheThread(): done \n";
+	  	  // std::cerr << " > > > > > zmqHelper.joinTheThread(): done \n";
 
 	} // ()
 
@@ -347,7 +347,12 @@ namespace zmqHelper {
 		  // if there is no task to do
 		   // std::cerr << " > > > > > zmqHelper.mainThread(): waiting  \n";
 		   if ( ! threadRunning ) break;
-		   conditionVar.wait (theLock) ; // wait 
+		   try {
+			 conditionVar.wait (theLock) ; // wait 
+		   } catch (std::exception err) {
+			 std::cerr << " > > > > > zmqHelper.mainThread(): wait EXCEPTION  \n";
+			 threadRunning = false;
+		   }
 		}
 
 		 // std::cerr << " > > > > > zmqHelper.mainThread(): unlocked  \n";
@@ -363,7 +368,7 @@ namespace zmqHelper {
 
 	  theCallback = nullptr;
 
-	  // std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
+	  	  // std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
 
 	} // ()
 
@@ -425,8 +430,12 @@ namespace zmqHelper {
 	~SocketAdaptor ()  { 
 	  // std::cerr << " > > > > > zmqHelper.destructor() called \n";
 	  if ( ownerThreadId == std::this_thread::get_id() ) {
+			  // std::cerr << " > > > > > zmqHelper.destructor() calling close \n";
 		close();
-	  }
+	  } else {
+			  // std::cerr << " > > > > > zmqHelper.destructor() calling only stopAndJoin \n";
+		stopAndJoinTheThread (); 
+	  } 
 	}
 
 	// .............................................................
@@ -558,20 +567,29 @@ namespace zmqHelper {
 	} // ()
 
 	// .............................................................
-	/// Close the socket.
+	/// Close the socket and stop the thread
 	// .............................................................
-	const void close () {
+	const void close() {
+	  	  // std::cerr << " > > > > > zmqHelper.close () called \n" << std::flush;
+	  closeSocket ();
+	  stopAndJoinTheThread ();
+	}
 
-	  checkThreadIdentity (); // destructor-thread calls close() only
+  private:
+	// .............................................................
+	/// Close the socket (only the socket)
+	// .............................................................
+	const void closeSocket () {
+
+	  // destructor-thread calls close() only
 	  // if owner of the socket
-
-	  
+	  checkThreadIdentity (); 
 
 	  if (theZmqSocket == nullptr) {
 		return;
 	  }
 
-	  // std::cerr << " > > > > > zmqHelper.close () closing socket \n" << std::flush;
+	  	  // std::cerr << " > > > > > zmqHelper.closeSocket () closing zmq_socket \n" << std::flush;
 
 	  //
 	  // close the socket and clean up
@@ -580,21 +598,15 @@ namespace zmqHelper {
 	  delete theZmqSocket;
 	  theZmqSocket = nullptr;
 
-	  // std::cerr << " > > > > > zmqHelper.close () socket closed \n" << std::flush;
-
 	  //
 	  // give the inner thread a chance to run
-	  // (is it blocked in receiveText?)
+	  // (could it be blocked in receiveText?)
 	  //
 	  std::this_thread::yield(); 
 
-	  // std::cerr << " > > > > > zmqHelper.close () stopping thread() \n" << std::flush;
-	  //
-	  //
-	  //
-	  stopAndJoinTheThread ();
-
 	} // ()
+
+  public:
 
 	// .............................................................
 	/// Direct access to the wrapped socket if a function
