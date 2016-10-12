@@ -18,9 +18,13 @@ int main ()
   std::vector<std::string> lines;
   const int N = 10;
 
+  std::cerr << "cliente empieza ... \n" << std::flush;
+
   SocketAdaptor< ZMQ_REQ > sa;
-  std::cerr << "Connecting to hello world server..." << std::endl;
+
+  std::cerr << "conectando al servidor ... \n" << std::flush;
   sa.connect ("tcp://localhost:5555");
+  std::cerr << " ... hecho \n" << std::flush;
 
   //  Do 10 requests, waiting each time for a response
   for (int i = 1; i <= N; i++) {

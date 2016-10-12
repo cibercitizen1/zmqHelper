@@ -38,9 +38,6 @@ namespace zmqHelper {
   // ---------------------------------------------------------------
   using ZmqSocketType = zmq::socket_t;
 
-  template<int ZMQ_SOCKET_TYPE>
-  using FunctionType = std::function<void(SocketAdaptor<ZMQ_SOCKET_TYPE>&)>;
-
   // -----------------------------------------------------------------
   /// @return true if there is more incoming data in the socket
   /// (i.e. it is a multipart message).
@@ -132,8 +129,7 @@ namespace zmqHelper {
   // ---------------------------------------------------------------
   // ---------------------------------------------------------------
   /// 
-  /// The SocketAdaptor class. 
-  /// It wraps a zmq::socket_t.
+  /// The SocketAdaptor class: It wraps a zmq::socket_t.
   /// 
   // ---------------------------------------------------------------
   // ---------------------------------------------------------------
@@ -143,122 +139,14 @@ namespace zmqHelper {
   private:
   
 	// .............................................................
-	/// Funcion to call if a internal thread is used
-	FunctionType<ZMQ_SOCKET_TYPE> theCallback = nullptr;
-
-	// .............................................................
-	/// Thread handler (when a dedicated thread is used USED)
-	/// the SocketAdaptor.
-	std::thread * theThread = nullptr;
-	bool threadRunning = false;
+	/// 
 	std::thread::id ownerThreadId;
-
-	// .............................................................
-	/// default context for the zmq::socket_t
-	zmq::context_t defaultContext {1};
 
 	// .............................................................
 	/// The zmq::socket_t and its context
 	zmq::context_t & theContext; 
 	ZmqSocketType  * theZmqSocket = nullptr;
-
-	// .............................................................
-	// 
-	std::mutex theMutex; // to be shared by locks on the same "subject"
-	std::condition_variable conditionVar; // to be shared ...
-
-	using Lock = std::unique_lock<std::mutex>;
-	// std::unique_lock<std::mutex> theLock {theMutex};
-	// std::unique_lock<std::mutex> theLock {theMutex, std::defer_lock}; 
-	// #define LOCK 
-	// 
-
-	// .............................................................
-	// .............................................................
-	void createTheThread () {
-
-	  theCallback = nullptr;
-
-	  theThread = new std::thread ( [this] () { 
-		  //
-		  //
-		  //
-		  ownerThreadId = std::this_thread::get_id();
-		  //
-		  //
-		  //
-		  theZmqSocket = new ZmqSocketType {theContext, ZMQ_SOCKET_TYPE}; 
-		  //
-		  //
-		  //
-		  main_Thread(); 
-		} );
-
-
-	} // ()
-
-	// .............................................................
-	// .............................................................
-	void awakeTheThread () {
-
-	  // std::cerr << " > > > > > zmqHelper.awakeTheThread() called \n";
-
-	  assert ( theCallback != nullptr );
-	  assert ( theThread != nullptr );
-	  
-	  threadRunning = true;
-	  conditionVar.notify_one();
-
-	   // std::cerr << " > > > > > zmqHelper.awakeTheThread() thread notified \n";
-	} // ()
-
-	// .............................................................
-	/// 
-	// .............................................................
-	  void assignTaskToTheThread ( FunctionType<ZMQ_SOCKET_TYPE>  f)
-	{ 
-	   // std::cerr << " > > > > > zmqHelper.assignTaskToTheThread() called \n";
-
-	  if (! isThreadIdle () ) {
-		throw ThreadIsNotIddleException {};
-		// return;
-	  }
-
-	  //
-	  //
-	  //
-	  theCallback = f;
-
-	  //
-	  //
-	  //
-	  awakeTheThread ();
-	}
-
-	// .............................................................
-	/// 
-	// .............................................................
-	void stopAndJoinTheThread () {
-
-	  // std::cerr << " > > > > > zmqHelper.stopAndJoin () called \n" << std::flush;
-
-	  if ( theThread == nullptr ) {
-		// no running thread: nothing to do
-		return;
-	  }
-
-	  //
-	  // stop
-	  //
-	  threadRunning = false;
-	  conditionVar.notify_one();
-
-	  //
-	  // join 
-	  //
-	  joinTheThread ();
-
-	} // ()
+	zmq::context_t defaultContext {1};
 
 	// .............................................................
 	/// 
@@ -273,104 +161,6 @@ namespace zmqHelper {
 	  }
 
 	}
-
-  public:
-	// .............................................................
-	/// 
-	// .............................................................
-	void joinTheThread () {
-
-	  // std::cerr << " > > > > > zmqHelper.joinTheThread(): called \n";
-
-	  if ( theThread == nullptr ) {
-		// no running thread: nothing to do
-		return;
-	  }
-
-	  if ( theThread->get_id() == std::this_thread::get_id() ) {
-		// the inner thread  can't join itserlf
-		return;
-	  }
-
-	  if ( ! theThread->joinable() ) {
-		// the thread can't be joined: nothing to do
-		return;
-	  }
-
-	  try {
-
-		//
-		// join and clean up
-		//
-		theThread->join ();
-
-		// std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
-		
-		delete theThread;
-		theThread = nullptr;
-		
-	  } catch ( std::exception ex) {
-		std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in ->join" << ex.what() << "\n";
-		std::cerr << " > > > > > this thread = " << std::this_thread::get_id() << "\n";
-		return;
-	  }
-		
-	  	  // std::cerr << " > > > > > zmqHelper.joinTheThread(): done \n";
-
-	} // ()
-
-	// .............................................................
-	// .............................................................
-	bool isThreadIdle () {
-	  return (theThread != nullptr && theCallback == nullptr);
-	}
-
-
-  private:
-	// .............................................................
-	// .............................................................
-	void main_Thread () {
-
-	   // std::cerr << " > > > > > zmqHelper.mainThread() called \n";
-
-	  Lock theLock {theMutex};
-
-	  threadRunning = true;
-
-	  // 
-	  // 
-	  // 
-	  while (threadRunning) {
-
-		while ( theCallback == nullptr) {
-		  // while: just to make sure we try to block (wait)
-		  // if there is no task to do
-		   // std::cerr << " > > > > > zmqHelper.mainThread(): waiting  \n";
-		   if ( ! threadRunning ) break;
-		   try {
-			 conditionVar.wait (theLock) ; // wait 
-		   } catch (std::exception err) {
-			 std::cerr << " > > > > > zmqHelper.mainThread(): wait EXCEPTION  \n";
-			 threadRunning = false;
-		   }
-		}
-
-		 // std::cerr << " > > > > > zmqHelper.mainThread(): unlocked  \n";
-
-		if ( ! threadRunning ) break;
-	  
-		if (theCallback  != nullptr ) {
-		  theCallback (*this); // do it once
-		  theCallback = nullptr;
-		}
-
-	  } // while
-
-	  theCallback = nullptr;
-
-	  	  // std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
-
-	} // ()
 
 	// .............................................................
 	/// Copy construction disallowed.
@@ -389,7 +179,9 @@ namespace zmqHelper {
 	// .............................................................
 	SocketAdaptor () 
 	  : SocketAdaptor {defaultContext} // delegating constructor
-	  { }
+	  {
+		std::cerr << " < < < < < < SocketAdaptor default constructuctor starting \n" << std::flush;
+	  }
 
 	// .............................................................
 	/// Constructor with a specific context. 
@@ -398,31 +190,32 @@ namespace zmqHelper {
 	/// @param aContext the context we get.
 	// .............................................................
 	SocketAdaptor (zmq::context_t & aContext) 
-	  : theContext{aContext}, theZmqSocket { new ZmqSocketType {aContext, ZMQ_SOCKET_TYPE} }
+	  : theContext{aContext}
+		// , theZmqSocket { new ZmqSocketType {theContext, ZMQ_SOCKET_TYPE} }
+	  
 	{ 
+	  std::cerr << " < < < < < < SocketAdaptor constructuctor starting \n" << std::flush;
+
+
+
+
+	  std::cerr << " < < < < < < SocketAdaptor constructuctor creating socket \n" << std::flush;
+
+	  theZmqSocket =  new ZmqSocketType { theContext, ZMQ_SOCKET_TYPE}; 
+
+
+
+	  
+
 	  // Now, it is supposed there is no inner thread.
 	  // We catch the calling thread id just to
-	  // ensure that this thread is going to use this socket.
+	  // ensure that this thread is the only using this socket.
 	  // (this will be checked by checkThreadId)
 	  
 	  ownerThreadId = std::this_thread::get_id();
-	}
 
-	// .............................................................
-	// .............................................................
-	SocketAdaptor (zmq::context_t & aContext, FunctionType<ZMQ_SOCKET_TYPE>  f)
-	  : theContext{aContext}
-	{ 
-	  createTheThread ();
-	  assignTaskToTheThread ( f );
-	  // std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
+	  std::cerr << " < < < < < < SocketAdaptor constructuctor done \n" << std::flush;
 	}
-
-	// .............................................................
-	// .............................................................
-	SocketAdaptor (FunctionType<ZMQ_SOCKET_TYPE>  f)
-	  : SocketAdaptor {defaultContext, f}
-	{ } 
 
 	// .............................................................
 	/// Destructor. Clean up.
@@ -432,9 +225,6 @@ namespace zmqHelper {
 	  if ( ownerThreadId == std::this_thread::get_id() ) {
 			  // std::cerr << " > > > > > zmqHelper.destructor() calling close \n";
 		close();
-	  } else {
-			  // std::cerr << " > > > > > zmqHelper.destructor() calling only stopAndJoin \n";
-		stopAndJoinTheThread (); 
 	  } 
 	}
 
@@ -483,7 +273,6 @@ namespace zmqHelper {
 	  theZmqSocket->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
 	}
 
-
 	// .............................................................
 	/// Send a multipart text message
 	/// @param msgs The lines of text to send out.
@@ -508,25 +297,6 @@ namespace zmqHelper {
 		theZmqSocket->send (reply, more);
 		i++;
 	  }
-
-	} // ()
-
-	// .............................................................
-	/// Send a single line message.
-	/// @param msg The text to send
-	/// Call canSendData() to make sure we can send.
-	/// (Don't know it is a good idea to use an assert() for it):
-	// .............................................................
-	void sendText (const std::string & msg) {
-
-	  checkThreadIdentity (); 
-
-	  // assert ( canSendData (theZmqSocket) );
-	  if ( ! canSendData (theZmqSocket) ) throw CantSendDataException {};
-
-	  zmq::message_t reply (msg.size());
-	  memcpy ((void *) reply.data (), msg.c_str(), msg.size());
-	  theZmqSocket->send (reply);
 
 	} // ()
 
@@ -567,19 +337,9 @@ namespace zmqHelper {
 	} // ()
 
 	// .............................................................
-	/// Close the socket and stop the thread
+	/// Close the socket 
 	// .............................................................
-	const void close() {
-	  	  // std::cerr << " > > > > > zmqHelper.close () called \n" << std::flush;
-	  closeSocket ();
-	  stopAndJoinTheThread ();
-	}
-
-  private:
-	// .............................................................
-	/// Close the socket (only the socket)
-	// .............................................................
-	const void closeSocket () {
+	const void close () {
 
 	  // destructor-thread calls close() only
 	  // if owner of the socket
@@ -598,17 +358,8 @@ namespace zmqHelper {
 	  delete theZmqSocket;
 	  theZmqSocket = nullptr;
 
-	  //
-	  // give the inner thread a chance to run
-	  // (could it be blocked in receiveText?)
-	  //
-	  std::this_thread::yield(); 
-
 	} // ()
 
-  public:
-
-	// .............................................................
 	/// Direct access to the wrapped socket if a function
 	/// not covered here is needed.
 	/// 
@@ -632,6 +383,361 @@ namespace zmqHelper {
 	  return theContext;
 	}
 
+  }; // class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+  
+
+
+  
+  // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  /// 
+  /// The SocketAdaptorWithThread class: 
+  /// 
+  // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  template<int ZMQ_SOCKET_TYPE>
+  class SocketAdaptorWithThread {
+
+  public:
+
+	using SocketAdaptorType = SocketAdaptor<ZMQ_SOCKET_TYPE>;
+	using FunctionType = std::function<void(SocketAdaptorType&)>;
+
+  private:
+
+	// .............................................................
+	/// 
+	SocketAdaptorType * theSocketAdaptor = nullptr;
+	zmq::context_t & theContext; 
+	zmq::context_t defaultContext {1};
+  
+	// .............................................................
+	/// Funcion to call if a internal thread is used
+	FunctionType theCallback = nullptr;
+
+	// .............................................................
+	/// Thread handler (when a dedicated thread is used USED)
+	/// the SocketAdaptor.
+	std::thread * theThread = nullptr;
+	bool threadRunning = false;
+
+	// .............................................................
+	///
+	std::mutex theMutex; // to be shared by locks on the same "subject"
+	std::condition_variable conditionVar; // to be shared ...
+	using Lock = std::unique_lock<std::mutex>;
+
+	// .............................................................
+	// .............................................................
+	void createTheThread () {
+
+	  theCallback = nullptr;
+
+	  // 
+	  // This is where the inner thread is created.
+	  // Its first action is to create the socket.
+	  // Then it calls main_Thread, where
+	  // the assigned task will be run.
+	  // 
+	  theThread = new std::thread ( [this] () { 
+		  //
+		  //
+		  //
+		  theSocketAdaptor = new SocketAdaptor<ZMQ_SOCKET_TYPE> {theContext};
+		  //
+		  //
+		  //
+		  main_Thread(); 
+		  //
+		  //
+		  //
+		  closeSocketAdaptor ();
+		} );
+
+	  std::cerr << " > > > > > createTheThread() done \n";
+
+	} // ()
+
+	// .............................................................
+	// .............................................................
+	void awakeTheThread () {
+
+	  // std::cerr << " > > > > > zmqHelper.awakeTheThread() called \n";
+
+	  assert ( theCallback != nullptr );
+	  assert ( theThread != nullptr );
+	  
+	  threadRunning = true;
+	  conditionVar.notify_one();
+
+	  std::cerr << " > > > > > awakeTheThread() done \n";
+	} // ()
+
+	// .............................................................
+	/// 
+	// .............................................................
+	  void assignTaskToTheThread ( FunctionType f)
+	{ 
+
+	  if (! isThreadIdle () ) {
+		throw ThreadIsNotIddleException {};
+		// return;
+	  }
+
+	  //
+	  //
+	  //
+	  theCallback = f;
+
+	  //
+	  //
+	  //
+	  awakeTheThread ();
+
+	  std::cerr << " > > > > > assignThasToTheThread() done \n";
+	}
+
+	// .............................................................
+	/// 
+	// .............................................................
+	void closeSocketAdaptor () {
+	  if ( theSocketAdaptor == nullptr) {
+		return;
+	  }
+	  //
+	  // close the socket and clean up
+	  //
+	  theSocketAdaptor->close ();                                           
+	  delete theSocketAdaptor;
+	  theSocketAdaptor = nullptr;
+
+	  std::cerr << " > > > > > closeSocketAdaptor() done \n";
+	}
+
+
+	// .............................................................
+	// .............................................................
+	void main_Thread () {
+
+	  std::cerr << " > > > > > zmqHelper.mainThread() called \n";
+
+	  Lock theLock {theMutex};
+
+	  threadRunning = true;
+
+	  // 
+	  // 
+	  // 
+	  while (threadRunning) {
+
+		while ( theCallback == nullptr) {
+		  // while: just to make sure we try to block (wait)
+		  // if there is no task to do
+		   // std::cerr << " > > > > > zmqHelper.mainThread(): waiting  \n";
+		   if ( ! threadRunning ) break;
+		   try {
+			 conditionVar.wait (theLock) ; // wait 
+		   } catch (std::exception err) {
+			 std::cerr << " > > > > > zmqHelper.mainThread(): wait EXCEPTION  \n";
+			 threadRunning = false;
+		   }
+		}
+
+		 // std::cerr << " > > > > > zmqHelper.mainThread(): unlocked  \n";
+
+		if ( ! threadRunning ) break;
+	  
+		if (theCallback  != nullptr ) {
+		  theCallback (*theSocketAdaptor); // do it once
+		  theCallback = nullptr;
+		}
+
+	  } // while
+
+	  theCallback = nullptr;
+
+	  	  // std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
+
+	} // ()
+
+	// .............................................................
+	/// Copy construction disallowed.
+	// .............................................................
+	SocketAdaptorWithThread (const SocketAdaptorWithThread & o)  = delete;
+
+	// .............................................................
+	/// Assignment disallowed.
+	// .............................................................
+	SocketAdaptorWithThread & operator=(const SocketAdaptorWithThread & o)  =delete;
+
+  public:
+
+	// .............................................................
+	// .............................................................
+	SocketAdaptorWithThread (zmq::context_t & aContext, FunctionType  f)
+	  : theContext{aContext}
+	{ 
+	  createTheThread ();
+	  assignTaskToTheThread ( f );
+	  std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
+	}
+
+	// .............................................................
+	// .............................................................
+	SocketAdaptorWithThread (FunctionType  f)
+	  : SocketAdaptorWithThread {defaultContext, f}
+	{ } 
+
+	// .............................................................
+	/// Destructor. Clean up.
+	// .............................................................
+	~SocketAdaptorWithThread ()  { 
+
+	  // This will be run by a different thread
+	  // from the one created here. That's why we
+	  // don't try to close the socket.
+	  // We only try to stop and join the thread
+
+	  // (But this does not guarantee that the thread is going
+	  // to be stopped, since it can be, f.ex., blocked
+	  // in a receive).
+	  // 
+	  tryToStopAndJoinTheThread ();
+	}
+
+	// .............................................................
+	/// 
+	// .............................................................
+	void joinTheThread () {
+
+	  std::cerr << " > > > > > joinTheThread(): called \n";
+
+	  if ( theThread == nullptr ) {
+		// no running thread: nothing to do
+		return;
+	  }
+
+	  //
+	  // THIS CAN'T HAPPEN NOW
+	  //
+	  /*
+	  if ( theThread->get_id() == std::this_thread::get_id() ) {
+		// the inner thread  can't join itself
+		// but, as this is intented to end, we're going
+		// to close the socket
+		return;
+	  }
+	  */
+
+	  if ( ! theThread->joinable() ) {
+		// the thread can't be joined: nothing to do
+		return;
+	  }
+
+	  try {
+
+		//
+		// join and clean up
+		//
+		theThread->join ();
+
+		// std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
+		
+		delete theThread;
+		theThread = nullptr;
+		
+	  } catch ( std::exception ex) {
+		std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in ->join" << ex.what() << "\n";
+		std::cerr << " > > > > > this thread = " << std::this_thread::get_id() << "\n";
+		return;
+	  }
+		
+	  	  // std::cerr << " > > > > > zmqHelper.joinTheThread(): done \n";
+
+	} // ()
+
+	// .............................................................
+	/// 
+	// .............................................................
+	void tryToStopAndJoinTheThread () {
+
+	  std::cerr << " > > > > > trytoStopAndJoinTheThread () called \n" << std::flush;
+
+	  if ( theThread == nullptr ) {
+		// no running thread: nothing to do
+		return;
+	  }
+
+	  //
+	  // stop
+	  //
+	  threadRunning = false;
+	  conditionVar.notify_one();
+
+	  //
+	  // join 
+	  //
+	  joinTheThread ();
+
+	} // ()
+
+	// .............................................................
+	// .............................................................
+	bool isThreadIdle () {
+	  return (theThread != nullptr && theCallback == nullptr);
+	}
+
+	// .............................................................
+	/// Direct access to the wrapped socket if a function
+	/// not covered here is needed.
+	/// 
+	///    Warning: 
+	/// now the class loses control over the socket
+	/// and thread-safety (only one thread uses the socket "at a time")
+	/// can't be guaranteed. Use on your own risk.
+	/// @return Reference to the socket.
+	// .............................................................
+	ZmqSocketType * getZmqSocket () {
+	  return theSocketAdaptor->getZmqSocket ();
+	} // ()
+
+	// .............................................................
+	/// Direct access to the context of this socket for if 
+	/// a function not covered here is needed.
+	/// (This is thread-safe)
+	/// @return Reference to the context.
+	// .............................................................
+	zmq::context_t & getContext () {
+	  return theSocketAdaptor->getContext ();
+	}
   }; // class
 
 }; // namespace
