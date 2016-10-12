@@ -29,11 +29,6 @@
 namespace zmqHelper {
 
   // ---------------------------------------------------------------
-  /// forward declaration
-  // ---------------------------------------------------------------
-  template<int ZMQ_SOCKET_TYPE> class SocketAdaptor; 
-
-  // ---------------------------------------------------------------
   /// useful type declarations
   // ---------------------------------------------------------------
   using ZmqSocketType = zmq::socket_t;
@@ -144,9 +139,11 @@ namespace zmqHelper {
 
 	// .............................................................
 	/// The zmq::socket_t and its context
-	zmq::context_t & theContext; 
-	ZmqSocketType  * theZmqSocket = nullptr;
+	// .............................................................
 	zmq::context_t defaultContext {1};
+	zmq::context_t & theContext = defaultContext;
+
+	ZmqSocketType  theZmqSocket;
 
 	// .............................................................
 	/// 
@@ -190,20 +187,11 @@ namespace zmqHelper {
 	/// @param aContext the context we get.
 	// .............................................................
 	SocketAdaptor (zmq::context_t & aContext) 
-	  : theContext{aContext}
-		// , theZmqSocket { new ZmqSocketType {theContext, ZMQ_SOCKET_TYPE} }
+	  : theContext{aContext},
+		theZmqSocket {aContext, ZMQ_SOCKET_TYPE} 
 	  
 	{ 
 	  std::cerr << " < < < < < < SocketAdaptor constructuctor starting \n" << std::flush;
-
-
-
-
-	  std::cerr << " < < < < < < SocketAdaptor constructuctor creating socket \n" << std::flush;
-
-	  theZmqSocket =  new ZmqSocketType { theContext, ZMQ_SOCKET_TYPE}; 
-
-
 
 	  
 
@@ -234,7 +222,7 @@ namespace zmqHelper {
 	void bind (const std::string & url)  { 
 	  checkThreadIdentity (); 
 
-	  theZmqSocket->bind (url.c_str());
+	  theZmqSocket.bind (url.c_str());
 	}
 
 	// .............................................................
@@ -243,7 +231,7 @@ namespace zmqHelper {
 	void connect (const std::string & url)  { 
 	  checkThreadIdentity (); 
 
-	  theZmqSocket->connect (url.c_str());
+	  theZmqSocket.connect (url.c_str());
 	}
 
 	// .............................................................
@@ -252,7 +240,7 @@ namespace zmqHelper {
 	void disconnect (const std::string & url)  { 
 	  checkThreadIdentity (); 
 
-	  theZmqSocket->disconnect (url.c_str());
+	  theZmqSocket.disconnect (url.c_str());
 	}
 
 	// .............................................................
@@ -261,7 +249,7 @@ namespace zmqHelper {
 	bool isConnected () {
 	  checkThreadIdentity (); 
 
-	  return theZmqSocket->connected();
+	  return theZmqSocket.connected();
 	}
 
 	// .............................................................
@@ -270,7 +258,7 @@ namespace zmqHelper {
 	void subscribe (const std::string & filter)  { 
 	  checkThreadIdentity (); 
 
-	  theZmqSocket->setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
+	  theZmqSocket.setsockopt(ZMQ_SUBSCRIBE, filter.c_str(), filter.size());
 	}
 
 	// .............................................................
@@ -284,7 +272,7 @@ namespace zmqHelper {
 	  checkThreadIdentity (); 
 	  
 	  // assert ( canSendData (theZmqSocket) );
-	  if ( ! canSendData (theZmqSocket) ) throw CantSendDataException {};
+	  if ( ! canSendData (&theZmqSocket) ) throw CantSendDataException {};
 
 	  unsigned int many = msgs.size ();
 	  unsigned int i=1;
@@ -294,7 +282,7 @@ namespace zmqHelper {
 		
 		int more = i<many ? ZMQ_SNDMORE : 0;
 		// std::cerr << " sending part " << i << "more = " << more << "\n";
-		theZmqSocket->send (reply, more);
+		theZmqSocket.send (reply, more);
 		i++;
 	  }
 
@@ -317,20 +305,20 @@ namespace zmqHelper {
 
 	  out.clear ();
 
-	  if (! isDataWaiting (theZmqSocket, time)) {
+	  if (! isDataWaiting (& theZmqSocket, time)) {
 		return false;
 	  }
 		
 	  do {
 		zmq::message_t reply;
-		theZmqSocket->recv (&reply); // this blocks as well, but it makes the program to abort
+		theZmqSocket.recv (&reply); // this blocks as well, but it makes the program to abort
 		// if a different thread closes the socket
 		
 		// char buff[100];
 		// memcpy (buff, reply.data(), reply.size());
 		out.push_back ( std::string { (char*) reply.data(), reply.size() } );
 		
-	  } while ( hasMore( theZmqSocket ) );
+	  } while ( hasMore( & theZmqSocket ) );
 
 	  return true;
 	
@@ -345,18 +333,12 @@ namespace zmqHelper {
 	  // if owner of the socket
 	  checkThreadIdentity (); 
 
-	  if (theZmqSocket == nullptr) {
-		return;
-	  }
-
-	  	  // std::cerr << " > > > > > zmqHelper.closeSocket () closing zmq_socket \n" << std::flush;
-
 	  //
-	  // close the socket and clean up
+	  // close 
 	  //
-   	  theZmqSocket->close (); 
-	  delete theZmqSocket;
-	  theZmqSocket = nullptr;
+   	  theZmqSocket.close (); 
+
+
 
 	} // ()
 
@@ -369,8 +351,8 @@ namespace zmqHelper {
 	/// can't be guaranteed. Use on your own risk.
 	/// @return Reference to the socket.
 	// .............................................................
-	ZmqSocketType * getZmqSocket () {
-	  return theZmqSocket;
+	ZmqSocketType  getZmqSocket () {
+	  return & theZmqSocket;
 	} // ()
 
 	// .............................................................

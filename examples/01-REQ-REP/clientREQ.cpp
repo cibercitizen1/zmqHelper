@@ -27,7 +27,8 @@ int main ()
   std::cerr << " ... hecho \n" << std::flush;
 
   //  Do 10 requests, waiting each time for a response
-  for (int i = 1; i <= N; i++) {
+  int i;
+  for (i = 1; i <= N; i++) {
 
 	std::cout << " i = " << i << "\n";
 
@@ -45,6 +46,8 @@ int main ()
 	std::cout << " ----------------- \n";
 	
   } // for
+
+  assert (i = N+1);
 
   std::cout << " OK \n" << std::flush;
 
