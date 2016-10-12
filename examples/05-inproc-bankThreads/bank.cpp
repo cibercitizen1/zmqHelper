@@ -36,15 +36,18 @@ class Bank {
 
 private:
 
-  SocketAdaptor< ZMQ_REP > theSocket; 
+  // caution: member fields are initialized in this order
+  // as they appear defined (not as the are listed in the constructor)
+  // as theSocket depend on myContext: myContext MUST appear BEFORE
+  
+  zmq::context_t myContext; // not constructed now
+
+  SocketAdaptorWithThread< ZMQ_REP > theSocket; 
   
   const std::string bankName;
+  
 
 public:
-
-  // .............................................................
-  // .............................................................
-  using SocketType = decltype (theSocket);
 
   // .............................................................
   // .............................................................
@@ -54,16 +57,20 @@ public:
 
   // .............................................................
   // .............................................................
-  Bank (const std::string & bn, std::function<void(SocketType &)> f)  
-	: bankName (bn) ,
-	  theSocket { f }
+  Bank (const std::string & bn, std::function<void(SocketAdaptor<ZMQ_REP> &)> f)  
+	: myContext { 1 }, // constructed now
+	  bankName (bn),
+	  theSocket { myContext, f }
   {
+
+	std::cerr << " Bank constructor: done \n";
   } 
   
   // ..............................................................
   // ..............................................................
   zmq::context_t & getContext () {
-	return theSocket.getContext ();
+	std::cerr << " Bank getContext: called \n";
+	return myContext;
   }
 
   // .............................................................
@@ -111,6 +118,8 @@ public:
 	}
 
 	theThread->join ();
+
+	std::cerr << " thread of person " << personName << " joined \n";
 	delete (theThread);
 	theThread = nullptr;
 
@@ -126,36 +135,43 @@ public:
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
 void personRole (Bank & bank, const std::string & name)  {
+
+
+  std::cout << " ***\t personRole of " << name << " starting \n" << std::flush;
 	
-	// Two threads communicate over inproc, using a shared context.
-	auto theSocket = new SocketAdaptor<ZMQ_REQ> { bank.getContext() };
+  // Two threads communicate over inproc, using a shared context.
+  SocketAdaptor<ZMQ_REQ> theSocket { bank.getContext() };
 
-	std::vector<std::string> lines;
+  std::cout << " ***\t personRole of " << name << " socket created \n";
+
+  std::vector<std::string> lines;
+  
+  std::cout << " ***\t personRole of " << name << " going to connect \n";
+  std::string url = "inproc://bank" + bank.getName();
+  theSocket.connect (url);
+  
+  std::cout << " ***\t personRole of " << name << " going to send \n";
+  
+  for (int i=1; i<=5; i++) {
 	
-	std::string url = "inproc://bank" + bank.getName();
-	theSocket->connect (url);
-
-	for (int i=1; i<=5; i++) {
-
-	  std::cout << name << " sending \n";
-
-	  // send request
-	  std::vector<std::string> multi = { name, "put", "12.34" };
-	  theSocket->sendText (multi);
-
-	  //  get reply
-	  theSocket->receiveText (lines);
-	  
-	  std::cout << name << " received:| ";
-	  for ( auto s : lines ) { std::cout << s << "|"; }
-	  std::cout << "\n";
-
-	  sleep (1);
-	} // for
+	std::cout << name << " ***\t person sending \n";
 	
-	theSocket->close ();
-	delete theSocket;
-  }; // ()
+	// send request
+	std::vector<std::string> multi = { name, "put", "12.34" };
+	theSocket.sendText (multi);
+	
+	//  get reply
+	theSocket.receiveText (lines);
+	
+	std::cout << name << " ***\t received:|";
+	for ( auto s : lines ) { std::cout << s << "|"; }
+	std::cout << "\n";
+	
+	sleep (1);
+  } // for
+  
+  theSocket.close ();
+}; // ()
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
@@ -167,12 +183,18 @@ int main () {
 
   auto bankRole =  [&]  (SocketAdaptor<ZMQ_REP> & socket ) -> void { 
 
+	sleep (2); // slowish banker
+
+	std::cout << " bankRole of " << bankName << " starting \n";
 	
 	std::vector<std::string> lines;
 
 	socket.bind ( "inproc://bank" + bankName );
 
+	std::cerr << " \t\t\t\t\t banckRole, receiving ... \n";
+
 	while (doorsOpen) { 
+	  
 	  if (! socket.receiveTextInTimeout (lines, 500) ) continue;
 
 	  /*
@@ -201,21 +223,23 @@ int main () {
 
   Bank b1 (bankName, bankRole);
 
-  Person p1 ( "john" );
-  Person p2 ( "mary" );
+
+
+  Person p1 ( "Alice" );
+  Person p2 ( "Bob" );
 
   // curry personRole() from 2 args to 1 arg ( let bank be b1 )
   auto role = [&] (const std::string & s) { return personRole (b1, s); };
 
-  p2.act (role);
   p1.act (role);
+  p2.act (role);
 
-  std::cout << " main waits for person threads \n";
+  std::cout << " +++ main: waiting for person threads \n";
 
   p1.join ();
   p2.join ();
 
-  std::cout << " person threads ended, closing doors \n";
+  std::cout << " +++ main: person threads ended, closing doors \n";
   doorsOpen = false;
 
   // std::cerr << " main thread = " << std::this_thread::get_id() << "\n";
@@ -223,5 +247,6 @@ int main () {
   std::cout << " ================ happy ending ==================\n" << std::flush;
 
   return 0;
+
 } // main ()
 

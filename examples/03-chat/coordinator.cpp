@@ -40,7 +40,7 @@ int main ()
 	emitter.sendText (lines);
 
 	// answer to the guest
-	receiver.sendText ("OK");
+	receiver.sendText ({"OK"});
 
   } // while
 

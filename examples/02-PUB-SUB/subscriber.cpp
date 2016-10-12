@@ -14,6 +14,8 @@ int main () {
 
   using namespace zmqHelper;
 
+  const int N = 10;
+
   std::vector<std::string> lines;
 
   SocketAdaptor< ZMQ_SUB > sa; 
@@ -21,17 +23,26 @@ int main () {
   sa.connect ("tcp://localhost:5555");
   sa.subscribe ("news");
 
-  while ( sa.receiveText (lines) ) {
+  int i;
+  for (i = 1; i<=N; i++) {
+
+	if  ( ! sa.receiveText (lines) )  break;
 	
 	//  there are news
 	  
-	std::cout << " news -------- \n";
+	std::cout << " got: -------- \n";
 	for ( auto s : lines ) {
 	  std::cout << s << "\n";
 	}
 	std::cout << " ----------------- \n";
 
-  } // while true
+  } // for
+
+  assert (i == N+1);
+
+  sa.close ();
+
+  std::cout << " happy ending ! \n";
 
   return 0;
 }

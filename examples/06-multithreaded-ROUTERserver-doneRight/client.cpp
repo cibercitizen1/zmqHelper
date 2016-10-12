@@ -13,10 +13,17 @@
 // ---------------------------------------------------------------
 int main() {
 
+  std::cout << "thread main = " << std::this_thread::get_id() << "\n";
+
   using namespace zmqHelper;
 
+  std::cout << " client starting \n";
+
   SocketAdaptor< ZMQ_DEALER > sa; 
-  sa.connect ("tcp://localhost:5580");
+  std::cout << " socket created \n";
+
+  sa.connect ("tcp://127.0.0.1:5580");
+  std::cout << " socket connected \n";
   
   std::vector<std::string> multi;
   std::vector<std::string> lines;

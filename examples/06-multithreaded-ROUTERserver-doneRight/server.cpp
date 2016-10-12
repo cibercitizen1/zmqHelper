@@ -159,7 +159,7 @@ private:
 	  // 
 	  //  reply
 	  // 
-	  internalRepSocket.sendText ("echo of: " + lines[0] + " " + lines[1] );
+	  internalRepSocket.sendText ({"echo of: " + lines[0] + " " + lines[1]});
 	  
 	} // while
   } // ()

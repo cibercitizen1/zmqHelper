@@ -117,7 +117,7 @@ namespace zmqHelper {
 
   // ---------------------------------------------------------------
   // ---------------------------------------------------------------
-  class SocketOwnedByInnerThreadException {};
+  class SocketOwnedByOtherThreadException {};
   class ThreadIsNotIddleException {};
   class CantSendDataException {};
 
@@ -140,10 +140,16 @@ namespace zmqHelper {
 	// .............................................................
 	/// The zmq::socket_t and its context
 	// .............................................................
-	zmq::context_t defaultContext {1};
-	zmq::context_t & theContext = defaultContext;
 
-	ZmqSocketType  theZmqSocket;
+	// caution: member fields are initialized in this order
+	// as they appear defined here (not as the are listed in the constructor)
+	// Because theSocket depend on myContext: myContext MUST appear BEFORE
+	// http://stackoverflow.com/questions/6308915/member-fields-order-of-construction
+
+	zmq::context_t defaultContext; // not constructed now
+	zmq::context_t & theContext; // not initialized now
+
+	ZmqSocketType  theZmqSocket; // not constructed now
 
 	// .............................................................
 	/// 
@@ -154,7 +160,10 @@ namespace zmqHelper {
 	  // and so on.
 	  
 	  if (ownerThreadId !=  std::this_thread::get_id()) {
-		  throw SocketOwnedByInnerThreadException {};
+		std::cerr << " > > > checkThreadId FAILED \n";
+		std::cerr << "ownerThreadId = " << ownerThreadId << "\n";
+		std::cerr << "offending thread = " << std::this_thread::get_id() << "\n";
+		throw SocketOwnedByOtherThreadException {};
 	  }
 
 	}
@@ -174,10 +183,13 @@ namespace zmqHelper {
 	// .............................................................
 	/// Default constructor. (Use our own zmq::context_t).
 	// .............................................................
-	SocketAdaptor () 
-	  : SocketAdaptor {defaultContext} // delegating constructor
+	explicit SocketAdaptor () 
+	  :
+	  defaultContext {1},  // constructed now
+	  theContext {defaultContext}, 
+	  theZmqSocket {defaultContext, ZMQ_SOCKET_TYPE} // constructed now
 	  {
-		std::cerr << " < < < < < < SocketAdaptor default constructuctor starting \n" << std::flush;
+		ownerThreadId = std::this_thread::get_id();
 	  }
 
 	// .............................................................
@@ -186,16 +198,15 @@ namespace zmqHelper {
 	/// must share a zmq::context_t.
 	/// @param aContext the context we get.
 	// .............................................................
-	SocketAdaptor (zmq::context_t & aContext) 
-	  : theContext{aContext},
-		theZmqSocket {aContext, ZMQ_SOCKET_TYPE} 
+	explicit SocketAdaptor (zmq::context_t & aContext) 
+	  :
+	  defaultContext {1},  // is it necessary? We don't use it.
+	  theContext {aContext}, // initialized now
+	  theZmqSocket {aContext, ZMQ_SOCKET_TYPE} // constructed now
 	  
 	{ 
-	  std::cerr << " < < < < < < SocketAdaptor constructuctor starting \n" << std::flush;
+	  std::cerr << " < < < < < < SocketAdaptor constructor starting \n" << std::flush;
 
-	  
-
-	  // Now, it is supposed there is no inner thread.
 	  // We catch the calling thread id just to
 	  // ensure that this thread is the only using this socket.
 	  // (this will be checked by checkThreadId)
@@ -229,9 +240,11 @@ namespace zmqHelper {
 	/// connect to an url
 	// .............................................................
 	void connect (const std::string & url)  { 
+	  std::cerr << " > > > > > SocketAdaptor.connect called \n";
 	  checkThreadIdentity (); 
 
 	  theZmqSocket.connect (url.c_str());
+	  std::cerr << " > > > > > SocketAdaptor.connect done \n";
 	}
 
 	// .............................................................
@@ -337,8 +350,8 @@ namespace zmqHelper {
 	  // close 
 	  //
    	  theZmqSocket.close (); 
-
-
+	  
+	  std::cerr << " > > > > > SocketAdaptor.close(): zmq socket closed \n";
 
 	} // ()
 
@@ -351,17 +364,27 @@ namespace zmqHelper {
 	/// can't be guaranteed. Use on your own risk.
 	/// @return Reference to the socket.
 	// .............................................................
-	ZmqSocketType  getZmqSocket () {
+	ZmqSocketType  * getZmqSocket () {
 	  return & theZmqSocket;
 	} // ()
 
 	// .............................................................
 	/// Direct access to the context of this socket for if 
 	/// a function not covered here is needed.
-	/// (This is thread-safe)
+	/// (This is should be thread-safe, but it is not.
+	/// You create  the zmq_socket and pass in the context,
+	/// but it seems that the internal zmq_socket thread
+	/// is in charge of saving the context. If
+	/// this latter thread gets blocked, and a different
+	/// one asks for the context, the returned context
+	/// or even the operation fails.
+	/// 
 	/// @return Reference to the context.
 	// .............................................................
+	// .............................................................
 	zmq::context_t & getContext () {
+	  // std::cerr << " > > > > > SocketAdaptor.getContext () called \n";
+	  checkThreadIdentity (); 
 	  return theContext;
 	}
 
@@ -374,27 +397,6 @@ namespace zmqHelper {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-
-  
 
 
   
@@ -418,8 +420,13 @@ namespace zmqHelper {
 	// .............................................................
 	/// 
 	SocketAdaptorType * theSocketAdaptor = nullptr;
-	zmq::context_t & theContext; 
-	zmq::context_t defaultContext {1};
+
+	// caution: member fields are initialized in this order
+	// as they appear defined here (not as the are listed in the constructor)
+	// Because theContext depend on myContext: myContext MUST appear BEFORE
+	// http://stackoverflow.com/questions/6308915/member-fields-order-of-construction
+	zmq::context_t defaultContext; // not constructed now
+	zmq::context_t & theContext;  // not init now
   
 	// .............................................................
 	/// Funcion to call if a internal thread is used
@@ -458,10 +465,14 @@ namespace zmqHelper {
 		  //
 		  //
 		  main_Thread(); 
+
+		  std::cerr << " > > > > > createTheThread() LAMBDA: after main_Thread()\n";
+
 		  //
 		  //
 		  //
 		  closeSocketAdaptor ();
+		  std::cerr << " > > > > > createTheThread() LAMBDA: at end\n";
 		} );
 
 	  std::cerr << " > > > > > createTheThread() done \n";
@@ -558,17 +569,21 @@ namespace zmqHelper {
 		if ( ! threadRunning ) break;
 	  
 		if (theCallback  != nullptr ) {
-		  theCallback (*theSocketAdaptor); // do it once
-		  theCallback = nullptr;
+		  // do it once
+		  theCallback (*theSocketAdaptor);
+		  // and because, for the moment no other task
+		  // is going to be assigned to this thread. Finish:
+		  threadRunning = false;
 		}
 
 	  } // while
 
 	  theCallback = nullptr;
 
-	  	  // std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
+	  std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
 
 	} // ()
+
 
 	// .............................................................
 	/// Copy construction disallowed.
@@ -580,12 +595,18 @@ namespace zmqHelper {
 	// .............................................................
 	SocketAdaptorWithThread & operator=(const SocketAdaptorWithThread & o)  =delete;
 
+	// .............................................................
+	/// no default constructor
+	// .............................................................
+	SocketAdaptorWithThread () = delete;
+
   public:
 
 	// .............................................................
 	// .............................................................
-	SocketAdaptorWithThread (zmq::context_t & aContext, FunctionType  f)
-	  : theContext{aContext}
+	explicit SocketAdaptorWithThread (zmq::context_t & aContext, FunctionType  f)
+	  : defaultContext{1}, // constructed now, not necessary not used
+		theContext{aContext} // init now
 	{ 
 	  createTheThread ();
 	  assignTaskToTheThread ( f );
@@ -594,9 +615,14 @@ namespace zmqHelper {
 
 	// .............................................................
 	// .............................................................
-	SocketAdaptorWithThread (FunctionType  f)
-	  : SocketAdaptorWithThread {defaultContext, f}
-	{ } 
+	explicit SocketAdaptorWithThread (FunctionType  f)
+	  : defaultContext{1}, // constructed now, 
+		theContext{defaultContext} // init now
+	{  
+	  createTheThread ();
+	  assignTaskToTheThread ( f );
+	  std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
+	}
 
 	// .............................................................
 	/// Destructor. Clean up.
@@ -646,12 +672,14 @@ namespace zmqHelper {
 
 	  try {
 
+		std::cerr << " > > > > > zmqHelper.joinTheThread(): going to join\n";
+
 		//
 		// join and clean up
 		//
 		theThread->join ();
 
-		// std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
+		std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
 		
 		delete theThread;
 		theThread = nullptr;
@@ -711,15 +739,27 @@ namespace zmqHelper {
 	  return theSocketAdaptor->getZmqSocket ();
 	} // ()
 
+  private:
+	
 	// .............................................................
 	/// Direct access to the context of this socket for if 
 	/// a function not covered here is needed.
-	/// (This is thread-safe)
+	/// (This is should be thread-safe, but it is not.
+	/// You create  the zmq_socket and pass in the context,
+	/// but it seems that the internal zmq_socket thread
+	/// is in charge of saving the context. If
+	/// this latter thread gets blocked, and a different
+	/// one asks for the context, the returned context
+	/// or even the operation fails.
+	/// 
+	/// )
 	/// @return Reference to the context.
 	// .............................................................
 	zmq::context_t & getContext () {
+	  // std::cerr << " > > > > > SocketAdaptorWithThread.getContext () called \n";
 	  return theSocketAdaptor->getContext ();
 	}
+	
   }; // class
 
 }; // namespace

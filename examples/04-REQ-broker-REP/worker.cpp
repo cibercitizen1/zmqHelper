@@ -23,10 +23,8 @@ void callback (SocketAdaptor<ZMQ_REP> & socket ) {
 
   while (socket.receiveText (lines) ) {
   
-	  std::cout << " worker received -------- \n";
-	  for ( auto s : lines ) {
-		std::cout << s << "\n";
-	  }
+	  std::cout << " *** worker received: -------- \n";
+	  for ( auto s : lines ) { std::cout << s << "\n"; }
 	  std::cout << " ----------------- \n";
 	  
 	  // Send the reply
@@ -38,6 +36,10 @@ void callback (SocketAdaptor<ZMQ_REP> & socket ) {
 
   socket.close ();
 
+  assert (count == N);
+
+  std::cout << " *** worker thread happy ending \n";
+
 }
 
 // ---------------------------------------------------------------
@@ -48,9 +50,13 @@ int main () {
   // so start many workers, or restar this programa
   // serveral time, not to leave clients unatended
 
-  SocketAdaptor< ZMQ_REP > sa  { callback };
+  SocketAdaptorWithThread< ZMQ_REP > sa  { callback };
+
+  std::cout << " *** worker main, going to join \n";
   
   sa.joinTheThread (); 
+
+  std::cout << " *** worker main happy ending \n";
 
   return 0;
 } // main ()

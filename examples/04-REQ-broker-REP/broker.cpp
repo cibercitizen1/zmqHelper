@@ -81,8 +81,12 @@ int main ()
   SocketAdaptor< ZMQ_DEALER > backend_DEALER;
   */
 
+  std::cout << " broker: binding ... ";
+
   frontend_ROUTER.bind ("tcp://*:8000");
   backend_DEALER.bind ("tcp://*:8001");
+
+  std::cout << " done \n";
 
   //
   //
