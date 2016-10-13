@@ -141,12 +141,13 @@ namespace zmqHelper {
 	/// The zmq::socket_t and its context
 	// .............................................................
 
-	// caution: member fields are initialized in this order
-	// as they appear defined here (not as the are listed in the constructor)
-	// Because theSocket depend on myContext: myContext MUST appear BEFORE
+	// Caution: member fields are initialized in this order
+	// -- as they appear defined here (not as they are listed in the constructor)
+	// Because theZmqSocket (and maybe theContext)
+	// depends on defaultContext: defaultContext MUST appear BEFORE them
 	// http://stackoverflow.com/questions/6308915/member-fields-order-of-construction
 
-	zmq::context_t defaultContext; // not constructed now
+	zmq::context_t defaultContext{1}; // constructed now FIRST THIS ONE
 	zmq::context_t & theContext; // not initialized now
 
 	ZmqSocketType  theZmqSocket; // not constructed now
@@ -184,13 +185,22 @@ namespace zmqHelper {
 	/// Default constructor. (Use our own zmq::context_t).
 	// .............................................................
 	explicit SocketAdaptor () 
+	  : SocketAdaptor { defaultContext } // forward constructor
+	{
+	}
+	  
+	/*
+	explicit SocketAdaptor () 
 	  :
 	  defaultContext {1},  // constructed now
 	  theContext {defaultContext}, 
 	  theZmqSocket {defaultContext, ZMQ_SOCKET_TYPE} // constructed now
 	  {
 		ownerThreadId = std::this_thread::get_id();
+
+	  std::cerr << " < < < < < < SocketAdaptor default constructuctor done \n" << std::flush;
 	  }
+	*/
 
 	// .............................................................
 	/// Constructor with a specific context. 
@@ -200,10 +210,8 @@ namespace zmqHelper {
 	// .............................................................
 	explicit SocketAdaptor (zmq::context_t & aContext) 
 	  :
-	  defaultContext {1},  // is it necessary? We don't use it.
 	  theContext {aContext}, // initialized now
 	  theZmqSocket {aContext, ZMQ_SOCKET_TYPE} // constructed now
-	  
 	{ 
 	  std::cerr << " < < < < < < SocketAdaptor constructor starting \n" << std::flush;
 
@@ -371,13 +379,21 @@ namespace zmqHelper {
 	// .............................................................
 	/// Direct access to the context of this socket for if 
 	/// a function not covered here is needed.
-	/// (This is should be thread-safe, but it is not.
-	/// You create  the zmq_socket and pass in the context,
-	/// but it seems that the internal zmq_socket thread
+	/// zmq_context are thread-safe, but not zmq_sockets.
+	/// 
+	/// You create  the zmq_socket and pass the context to it.
+	/// But, it seems that the internal zmq_socket thread
 	/// is in charge of saving the context. If
 	/// this latter thread gets blocked, and a different
-	/// one asks for the context, the returned context
+	/// one asks for the context before it is properly set,
+	/// a wrong context is returned
 	/// or even the operation fails.
+	///  
+	/// Hence, we check the identity of the caller asking for the context.
+	/// 
+	/// If you need to shared a context create it independently
+	/// of the sockets and share it, not ask the stored context
+	/// for sharing.
 	/// 
 	/// @return Reference to the context.
 	// .............................................................
@@ -421,11 +437,12 @@ namespace zmqHelper {
 	/// 
 	SocketAdaptorType * theSocketAdaptor = nullptr;
 
-	// caution: member fields are initialized in this order
-	// as they appear defined here (not as the are listed in the constructor)
-	// Because theContext depend on myContext: myContext MUST appear BEFORE
+	// Caution: member fields are initialized in this order
+	// -- as they appear defined here (not as they are listed in the constructor)
+	// Because theContext may
+	// depend on defaultContext: defaultContext MUST appear BEFORE it
 	// http://stackoverflow.com/questions/6308915/member-fields-order-of-construction
-	zmq::context_t defaultContext; // not constructed now
+	zmq::context_t defaultContext {1}; // constructed now FIRST THIS ONE
 	zmq::context_t & theContext;  // not init now
   
 	// .............................................................
@@ -605,7 +622,7 @@ namespace zmqHelper {
 	// .............................................................
 	// .............................................................
 	explicit SocketAdaptorWithThread (zmq::context_t & aContext, FunctionType  f)
-	  : defaultContext{1}, // constructed now, not necessary not used
+	  : 
 		theContext{aContext} // init now
 	{ 
 	  createTheThread ();
@@ -616,6 +633,11 @@ namespace zmqHelper {
 	// .............................................................
 	// .............................................................
 	explicit SocketAdaptorWithThread (FunctionType  f)
+	  : SocketAdaptorWithThread {defaultContext, f} // forward constructor
+	{
+	}
+	/*
+	explicit SocketAdaptorWithThread (FunctionType  f)
 	  : defaultContext{1}, // constructed now, 
 		theContext{defaultContext} // init now
 	{  
@@ -623,6 +645,7 @@ namespace zmqHelper {
 	  assignTaskToTheThread ( f );
 	  std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
 	}
+	*/
 
 	// .............................................................
 	/// Destructor. Clean up.
@@ -742,23 +765,20 @@ namespace zmqHelper {
   private:
 	
 	// .............................................................
-	/// Direct access to the context of this socket for if 
-	/// a function not covered here is needed.
-	/// (This is should be thread-safe, but it is not.
-	/// You create  the zmq_socket and pass in the context,
-	/// but it seems that the internal zmq_socket thread
-	/// is in charge of saving the context. If
-	/// this latter thread gets blocked, and a different
-	/// one asks for the context, the returned context
-	/// or even the operation fails.
 	/// 
-	/// )
+	/// Function removed. See comment of SocketAdaptor::getContext()
+	/// Here, in addition, this function can only be called
+	/// by an external thread, different from the inner (and owner) one.
+	/// So it should not even exist.
+	/// 
 	/// @return Reference to the context.
 	// .............................................................
+	/*
 	zmq::context_t & getContext () {
 	  // std::cerr << " > > > > > SocketAdaptorWithThread.getContext () called \n";
 	  return theSocketAdaptor->getContext ();
 	}
+	*/
 	
   }; // class
 

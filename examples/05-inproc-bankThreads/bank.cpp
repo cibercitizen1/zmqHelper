@@ -223,7 +223,20 @@ int main () {
 
   Bank b1 (bankName, bankRole);
 
-
+  /* 
+   * I had a race condition:
+   * The Bank constructor calls the Socket constructor giving it the context.
+   * The thread of the zmq_socket suspends before it properly saves the context,
+   * but the main-thread goes on, and starts the Persons
+   * A Thread of a person asks to get the context of Bank (which, in turn, 
+   * !!! in the previous zmqHelper version !!!
+   * asks the socket for the context. An invalid context is returned.
+   * Thus, when the person constructs its socket the program aborts
+   * (terminating with uncaught exception of type zmq::error_t: Bad address)
+   * and share it.
+   * Solved, restricting the use of SockedAdaptor:getSocket() and
+   * creating and sharing the context externally to the sockets.
+   */
 
   Person p1 ( "Alice" );
   Person p2 ( "Bob" );
