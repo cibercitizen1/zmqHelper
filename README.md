@@ -32,12 +32,12 @@ will lead to random weirdness, and crashes." Remember:
 socket may use it.  There are  two types of sockets: SocketAdaptor and
 SocketAdaptorWithThread.
 	- SocketAdaptor checks that the thread calling its methods is the same which created/declared the variable.
-	- SocketAdaptorWithThread runs a new thread witch exclusive use to the enclosed SocketAdaptor. The constructor expects a function that will be executed by the inner thread.
+	- SocketAdaptorWithThread runs a new thread with exclusive use to an enclosed SocketAdaptor. The constructor expects a function that will be executed by the inner thread.
 
 * Code excerpts
 
   - REQ client
-```cpp
+  	```cpp
 SocketAdaptor< ZMQ_REQ > sa;
   sa.connect ("tcp://localhost:5555");
 
@@ -47,7 +47,7 @@ sa.sendText ( multi );
 bool recvOK = sa.receiveText (lines); 
 
 sa.close ();
-```
+		 ```
 
 ```cpp
 ```
