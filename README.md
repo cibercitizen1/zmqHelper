@@ -71,6 +71,7 @@ sa.close ();
 	}  // lambda
   }; // sa
 	```
+<<<<<<< HEAD
   - broker: ROUTER fronted, DEALER backend (blocking poll made easy)
   	```cpp
   zmq::context_t theContext {1}; // 1 thread in the socket 
@@ -119,6 +120,12 @@ sa.close ();
   - guest of a chat (REQ for sending, SUB for receiving). Note how
   the inner thread in SUB is notified.
     ```cpp
+=======
+
+  - guest of a chat (REQ for sending, SUB for receiving). Note how
+  the inner thread in SUB is notified.
+  ```cpp
+>>>>>>> 56cc41224e71321e7e11418c67d4c4ff33d97309
   bool receiving = true; // for signaling the thread in SUB
 
   SocketAdaptorWithThread< ZMQ_SUB > receiver { 
@@ -178,9 +185,64 @@ sa.close ();
 	// ignore answer (should be "OK")
 
   } while (line != "BYE" && line != ""); 
+<<<<<<< HEAD
 
   receiving = false; // signal the thread to end
   
   // close socket
   emitter.close ();
+=======
+
+  receiving = false;
+  
+  //
+  // close socket
+  //
+  emitter.close ();
+  ```
+
+  - broker: ROUTER fronted, DEALER backend (blocking poll made easy)
+  ```cpp
+  zmq::context_t theContext {1}; // 1 thread in the socket 
+  SocketAdaptor< ZMQ_ROUTER > frontend_ROUTER {theContext};
+  SocketAdaptor< ZMQ_DEALER > backend_DEALER {theContext};
+
+  frontend_ROUTER.bind ("tcp://*:8000");
+  backend_DEALER.bind ("tcp://*:8001");
+
+  while (true) {
+
+        std::vector<std::string> lines;
+        
+        // 
+        //  wait (blocking poll) for data in any socket
+        // 
+        std::vector< zmqHelper::ZmqSocketType * > list
+          = {  frontend_ROUTER.getZmqSocket(),  backend_DEALER.getZmqSocket() };
+
+        zmqHelper::ZmqSocketType *  from = zmqHelper::waitForDataInSockets ( list );
+
+        // 
+        //  there is data, where is it from?
+        // 
+        if ( from ==  frontend_ROUTER.getZmqSocket() ) {
+          // from frontend, read ...
+          frontend_ROUTER.receiveText (lines);
+
+          // ... and resend
+          backend_DEALER.sendText( lines );
+        }
+        else if ( from ==  backend_DEALER.getZmqSocket() ) {
+          // from backend, read ...
+          backend_DEALER.receiveText (lines);
+
+          // ... and resend
+          frontend_ROUTER.sendText( lines );
+		} 
+		else if ( from == nullptr ) {
+		  std::cerr << "Error in poll ?\n";
+		}
+
+  } // while (true)
+>>>>>>> 56cc41224e71321e7e11418c67d4c4ff33d97309
   ```
