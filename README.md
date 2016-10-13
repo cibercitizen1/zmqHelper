@@ -28,9 +28,29 @@ will lead to random weirdness, and crashes." Remember:
     - Create one ZeroMQ context at the start of your process, 
       and pass that to all threads that you want to connect via inproc sockets.
 
-* Now, we enforce the above rules. Only the thread creating a socket may use it.
+* Now, we  enforce the  above rules.  Only the  thread that  created a
+socket may use it.  There are  two types of sockets: SocketAdaptor and
+SocketAdaptorWithThread.
+	- SocketAdaptor checks that the thread calling its methods is the same which created/declared the variable.
+	- SocketAdaptorWithThread runs a new thread witch exclusive use to the enclosed SocketAdaptor. The constructor expects a function that will be executed by the inner thread.
 
+* Code excerpts
+
+  - REQ client
+```cpp
+SocketAdaptor< ZMQ_REQ > sa;
+  sa.connect ("tcp://localhost:5555");
+
+std::vector<std::string> multi = { "Hallo Hallo", "Hello Hello" };
+sa.sendText ( multi );
+
+bool recvOK = sa.receiveText (lines); 
+
+sa.close ();
+```
 
 ```cpp
 ```
 
+```cpp
+```
