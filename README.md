@@ -179,11 +179,8 @@ sa.close ();
 
   } while (line != "BYE" && line != ""); 
 
-  receiving = false;
+  receiving = false; // signal the thread to end
   
-  //
   // close socket
-  //
   emitter.close ();
   ```
-
