@@ -157,7 +157,7 @@ namespace zmqHelper {
 	// .............................................................
 	inline void checkThreadIdentity () {
 	  // if an innner thread is running here, no one else
-	  // is allow to use some public functions, like send, receive
+	  // is allowed to use public functions, like send, receive
 	  // and so on.
 	  
 	  if (ownerThreadId !=  std::this_thread::get_id()) {
@@ -189,19 +189,6 @@ namespace zmqHelper {
 	{
 	}
 	  
-	/*
-	explicit SocketAdaptor () 
-	  :
-	  defaultContext {1},  // constructed now
-	  theContext {defaultContext}, 
-	  theZmqSocket {defaultContext, ZMQ_SOCKET_TYPE} // constructed now
-	  {
-		ownerThreadId = std::this_thread::get_id();
-
-	  std::cerr << " < < < < < < SocketAdaptor default constructuctor done \n" << std::flush;
-	  }
-	*/
-
 	// .............................................................
 	/// Constructor with a specific context. 
 	/// Necessary when using the 'inproc' transport, as the sockets
@@ -213,7 +200,7 @@ namespace zmqHelper {
 	  theContext {aContext}, // initialized now
 	  theZmqSocket {aContext, ZMQ_SOCKET_TYPE} // constructed now
 	{ 
-	  std::cerr << " < < < < < < SocketAdaptor constructor starting \n" << std::flush;
+	  // std::cerr << " < < < < < < SocketAdaptor constructor starting \n" << std::flush;
 
 	  // We catch the calling thread id just to
 	  // ensure that this thread is the only using this socket.
@@ -221,7 +208,7 @@ namespace zmqHelper {
 	  
 	  ownerThreadId = std::this_thread::get_id();
 
-	  std::cerr << " < < < < < < SocketAdaptor constructuctor done \n" << std::flush;
+	  // std::cerr << " < < < < < < SocketAdaptor constructuctor done \n" << std::flush;
 	}
 
 	// .............................................................
@@ -230,7 +217,7 @@ namespace zmqHelper {
 	~SocketAdaptor ()  { 
 	  // std::cerr << " > > > > > zmqHelper.destructor() called \n";
 	  if ( ownerThreadId == std::this_thread::get_id() ) {
-			  // std::cerr << " > > > > > zmqHelper.destructor() calling close \n";
+		// std::cerr << " > > > > > zmqHelper.destructor() calling close \n";
 		close();
 	  } 
 	}
@@ -248,11 +235,11 @@ namespace zmqHelper {
 	/// connect to an url
 	// .............................................................
 	void connect (const std::string & url)  { 
-	  std::cerr << " > > > > > SocketAdaptor.connect called \n";
+	  // std::cerr << " > > > > > SocketAdaptor.connect called \n";
 	  checkThreadIdentity (); 
 
 	  theZmqSocket.connect (url.c_str());
-	  std::cerr << " > > > > > SocketAdaptor.connect done \n";
+	  // std::cerr << " > > > > > SocketAdaptor.connect done \n";
 	}
 
 	// .............................................................
@@ -359,10 +346,11 @@ namespace zmqHelper {
 	  //
    	  theZmqSocket.close (); 
 	  
-	  std::cerr << " > > > > > SocketAdaptor.close(): zmq socket closed \n";
+	  // std::cerr << " > > > > > SocketAdaptor.close(): zmq socket closed \n";
 
 	} // ()
 
+	// .............................................................
 	/// Direct access to the wrapped socket if a function
 	/// not covered here is needed.
 	/// 
@@ -373,6 +361,7 @@ namespace zmqHelper {
 	/// @return Reference to the socket.
 	// .............................................................
 	ZmqSocketType  * getZmqSocket () {
+	  checkThreadIdentity (); 
 	  return & theZmqSocket;
 	} // ()
 
@@ -483,16 +472,16 @@ namespace zmqHelper {
 		  //
 		  main_Thread(); 
 
-		  std::cerr << " > > > > > createTheThread() LAMBDA: after main_Thread()\n";
+		  // std::cerr << " > > > > > createTheThread() LAMBDA: after main_Thread()\n";
 
 		  //
 		  //
 		  //
 		  closeSocketAdaptor ();
-		  std::cerr << " > > > > > createTheThread() LAMBDA: at end\n";
+		  // std::cerr << " > > > > > createTheThread() LAMBDA: at end\n";
 		} );
 
-	  std::cerr << " > > > > > createTheThread() done \n";
+	  // std::cerr << " > > > > > createTheThread() done \n";
 
 	} // ()
 
@@ -508,7 +497,7 @@ namespace zmqHelper {
 	  threadRunning = true;
 	  conditionVar.notify_one();
 
-	  std::cerr << " > > > > > awakeTheThread() done \n";
+	  // std::cerr << " > > > > > awakeTheThread() done \n";
 	} // ()
 
 	// .............................................................
@@ -532,7 +521,7 @@ namespace zmqHelper {
 	  //
 	  awakeTheThread ();
 
-	  std::cerr << " > > > > > assignThasToTheThread() done \n";
+	  // std::cerr << " > > > > > assignThasToTheThread() done \n";
 	}
 
 	// .............................................................
@@ -549,7 +538,7 @@ namespace zmqHelper {
 	  delete theSocketAdaptor;
 	  theSocketAdaptor = nullptr;
 
-	  std::cerr << " > > > > > closeSocketAdaptor() done \n";
+	  // std::cerr << " > > > > > closeSocketAdaptor() done \n";
 	}
 
 
@@ -557,7 +546,7 @@ namespace zmqHelper {
 	// .............................................................
 	void main_Thread () {
 
-	  std::cerr << " > > > > > zmqHelper.mainThread() called \n";
+	  // std::cerr << " > > > > > zmqHelper.mainThread() called \n";
 
 	  Lock theLock {theMutex};
 
@@ -576,7 +565,7 @@ namespace zmqHelper {
 		   try {
 			 conditionVar.wait (theLock) ; // wait 
 		   } catch (std::exception err) {
-			 std::cerr << " > > > > > zmqHelper.mainThread(): wait EXCEPTION  \n";
+			 // std::cerr << " > > > > > zmqHelper.mainThread(): wait EXCEPTION  \n";
 			 threadRunning = false;
 		   }
 		}
@@ -597,7 +586,7 @@ namespace zmqHelper {
 
 	  theCallback = nullptr;
 
-	  std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
+	  // std::cerr << " > > > > > zmqHelper.mainThread(): end of life  \n";
 
 	} // ()
 
@@ -620,6 +609,9 @@ namespace zmqHelper {
   public:
 
 	// .............................................................
+	/// Constructor 
+	/// @param aContext the context to use.
+	/// @param f the task for the inner thread
 	// .............................................................
 	explicit SocketAdaptorWithThread (zmq::context_t & aContext, FunctionType  f)
 	  : 
@@ -627,25 +619,17 @@ namespace zmqHelper {
 	{ 
 	  createTheThread ();
 	  assignTaskToTheThread ( f );
-	  std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
+	  // std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
 	}
 
 	// .............................................................
+	/// Constructor.  Use own context.
+	/// @param f the task for the inner thread
 	// .............................................................
 	explicit SocketAdaptorWithThread (FunctionType  f)
 	  : SocketAdaptorWithThread {defaultContext, f} // forward constructor
 	{
 	}
-	/*
-	explicit SocketAdaptorWithThread (FunctionType  f)
-	  : defaultContext{1}, // constructed now, 
-		theContext{defaultContext} // init now
-	{  
-	  createTheThread ();
-	  assignTaskToTheThread ( f );
-	  std::cerr << " > > > > > zmqHelper.constructor() with inner thread ended \n";
-	}
-	*/
 
 	// .............................................................
 	/// Destructor. Clean up.
@@ -665,28 +649,16 @@ namespace zmqHelper {
 	}
 
 	// .............................................................
-	/// 
+	/// The calling thread waits to join the inner thread
 	// .............................................................
 	void joinTheThread () {
 
-	  std::cerr << " > > > > > joinTheThread(): called \n";
+	  // std::cerr << " > > > > > joinTheThread(): called \n";
 
 	  if ( theThread == nullptr ) {
 		// no running thread: nothing to do
 		return;
 	  }
-
-	  //
-	  // THIS CAN'T HAPPEN NOW
-	  //
-	  /*
-	  if ( theThread->get_id() == std::this_thread::get_id() ) {
-		// the inner thread  can't join itself
-		// but, as this is intented to end, we're going
-		// to close the socket
-		return;
-	  }
-	  */
 
 	  if ( ! theThread->joinable() ) {
 		// the thread can't be joined: nothing to do
@@ -695,21 +667,21 @@ namespace zmqHelper {
 
 	  try {
 
-		std::cerr << " > > > > > zmqHelper.joinTheThread(): going to join\n";
+		// std::cerr << " > > > > > zmqHelper.joinTheThread(): going to join\n";
 
 		//
 		// join and clean up
 		//
 		theThread->join ();
 
-		std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
+		// std::cerr << " > > > > > zmqHelper.joinTheThread(): joined \n";
 		
 		delete theThread;
 		theThread = nullptr;
 		
 	  } catch ( std::exception ex) {
-		std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in ->join" << ex.what() << "\n";
-		std::cerr << " > > > > > this thread = " << std::this_thread::get_id() << "\n";
+		// std::cerr << " > > > > > zmqHelper.joinTheThread(): exception in ->join" << ex.what() << "\n";
+		// std::cerr << " > > > > > this thread = " << std::this_thread::get_id() << "\n";
 		return;
 	  }
 		
@@ -718,11 +690,14 @@ namespace zmqHelper {
 	} // ()
 
 	// .............................................................
-	/// 
+	/// Allow the thread to exit the loop in main_Thread.
+	/// (Anyway the thread can be blocked, f.ex, receiving.
+	/// Thus, the programmer should provide a way to unblock
+	/// a inner thread if he uses it)
 	// .............................................................
 	void tryToStopAndJoinTheThread () {
 
-	  std::cerr << " > > > > > trytoStopAndJoinTheThread () called \n" << std::flush;
+	  // std::cerr << " > > > > > trytoStopAndJoinTheThread () called \n" << std::flush;
 
 	  if ( theThread == nullptr ) {
 		// no running thread: nothing to do
@@ -743,6 +718,7 @@ namespace zmqHelper {
 	} // ()
 
 	// .............................................................
+	/// is the thread idle?
 	// .............................................................
 	bool isThreadIdle () {
 	  return (theThread != nullptr && theCallback == nullptr);
