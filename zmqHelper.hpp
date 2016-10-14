@@ -156,9 +156,6 @@ namespace zmqHelper {
 	/// 
 	// .............................................................
 	inline void checkThreadIdentity () {
-	  // if an innner thread is running here, no one else
-	  // is allowed to use public functions, like send, receive
-	  // and so on.
 	  
 	  if (ownerThreadId !=  std::this_thread::get_id()) {
 		std::cerr << " > > > checkThreadId FAILED \n";
