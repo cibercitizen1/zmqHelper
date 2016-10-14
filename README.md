@@ -58,7 +58,6 @@ sa.close ();
 	  socket.bind ("tcp://*:5555");
 	  
 	  while ( socket.receiveText (lines) ) {
-	  	std::vector<std::string> lines;
 		
 		std::cout << " received: ";
 		for ( auto s : lines ) { std::cout << s << "\n"; }
