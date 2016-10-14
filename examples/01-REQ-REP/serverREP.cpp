@@ -22,7 +22,7 @@ int main () {
   {	
 	[] (SocketAdaptor<ZMQ_REP> &  socket ) -> void { 
 	  
-	  std::cerr << " *** user provided callback starting \n";
+	  std::cerr << " *** thread starting \n";
 	  
 	  std::vector<std::string> lines;
 	  
@@ -47,7 +47,7 @@ int main () {
 	}  // lambda
   }; // sa
 
-  std::cerr << " main: before join the thread \n" << std::flush;
+  std::cerr << " thread main: before join the thread \n" << std::flush;
   
   sa.joinTheThread (); // never returns because we don't stop the thread on sa
 
